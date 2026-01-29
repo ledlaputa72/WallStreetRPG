@@ -545,16 +545,24 @@ export default class BattleScene extends Phaser.Scene {
 
       this.candleGraphics.push(graphics)
 
-      // 마지막 포인트의 마커 위치만 저장 (원은 그리지 않음)
+      // 마지막 포인트에 원형 마커 추가
       if (candles.length > 0) {
         const lastCandle = candles[candles.length - 1]
         const lastIndex = candles.length - 1
         const x = startX + lastIndex * pointSpacing
         const y = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
         
-        // 마커 위치만 저장 (이펙트 발생 위치로 사용)
+        // 마커 위치 저장
         this.currentMarkerX = x
         this.currentMarkerY = y
+        
+        // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
+        const markerGraphics = this.add.graphics()
+        if (markerGraphics) {
+          markerGraphics.fillStyle(lineColor, 1)
+          markerGraphics.fillCircle(x, y, 6)
+          this.markerCircle = markerGraphics
+        }
       }
 
       // 볼륨 바 그리기
@@ -615,16 +623,24 @@ export default class BattleScene extends Phaser.Scene {
 
       this.candleGraphics.push(graphics)
 
-      // 마지막 포인트의 마커 위치만 저장 (원은 그리지 않음)
+      // 마지막 포인트에 원형 마커 추가
       if (candles.length > 0) {
         const lastCandle = candles[candles.length - 1]
         const lastIndex = candles.length - 1
         const x = startX + lastIndex * pointSpacing
         const y = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
         
-        // 마커 위치만 저장 (이펙트 발생 위치로 사용)
+        // 마커 위치 저장
         this.currentMarkerX = x
         this.currentMarkerY = y
+        
+        // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
+        const markerGraphics = this.add.graphics()
+        if (markerGraphics) {
+          markerGraphics.fillStyle(lineColor, 1)
+          markerGraphics.fillCircle(x, y, 6)
+          this.markerCircle = markerGraphics
+        }
       }
 
       // 볼륨 바 그리기
