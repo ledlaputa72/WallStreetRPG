@@ -278,25 +278,26 @@ export default class BattleScene extends Phaser.Scene {
       // 타격 이펙트: 방사형 임팩트 라인
       const impactLines = this.add.graphics()
       if (impactLines) {
-        // 강도에 따른 라인 수와 길이
-        const lineCount = intensity === 1 ? 6 : intensity === 2 ? 8 : 12
-        const maxLineLength = intensity === 1 ? 20 : intensity === 2 ? 30 : 40
-        const lineThickness = intensity === 1 ? 2 : intensity === 2 ? 3 : 4
+        // 강도에 따른 라인 수와 길이 (더 크고 명확하게)
+        const lineCount = intensity === 1 ? 8 : intensity === 2 ? 10 : 16
+        const maxLineLength = intensity === 1 ? 35 : intensity === 2 ? 50 : 70
+        const lineThickness = intensity === 1 ? 4 : intensity === 2 ? 6 : 8
         
         // 방사형 라인 애니메이션
         let progress = 0
         this.tweens.add({
           targets: { value: 0 },
           value: 1,
-          duration: 400,
-          ease: 'Cubic.easeOut',
+          duration: 500,
+          ease: 'Power2',
           onUpdate: (tween) => {
             const tweenProgress = tween.getValue()
             progress = tweenProgress !== null ? tweenProgress : 0
             impactLines.clear()
             
-            const currentAlpha = 1 - progress
-            const currentLength = maxLineLength * progress
+            // 알파값을 천천히 감소 (더 오래 보이도록)
+            const currentAlpha = Math.max(0, 1 - progress * 1.2)
+            const currentLength = maxLineLength * Math.min(1, progress * 1.5)
             
             impactLines.lineStyle(lineThickness, particleColor, currentAlpha)
             
