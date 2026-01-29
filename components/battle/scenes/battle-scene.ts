@@ -205,15 +205,46 @@ export default class BattleScene extends Phaser.Scene {
       const x = this.currentMarkerX
       const y = this.currentMarkerY
 
-      // 파티클 효과 - 마커 원 주변에 발생
+      // 캔들의 body 길이 계산 (변화 강도)
+      const bodyLength = Math.abs(candle.close - candle.open)
+      
+      // 강도 결정 (1: 약함, 2: 중간, 3: 강함)
+      let intensity: 1 | 2 | 3
+      if (bodyLength < 1500) {
+        intensity = 1
+      } else if (bodyLength < 3000) {
+        intensity = 2
+      } else {
+        intensity = 3
+      }
+
+      // 색상 결정
+      // 녹색 캔들 (상승): 노란색 이펙트 (공격받음)
+      // 빨간색 캔들 (하락): 파란색 이펙트 (공격함)
+      const particleColor = isUp ? 0xffff00 : 0x0088ff
+      
+      // 강도에 따른 파티클 수
+      const particleCount = intensity === 1 ? 10 : intensity === 2 ? 20 : 30
+      const particleScale = intensity === 1 ? 0.8 : intensity === 2 ? 1.2 : 1.8
+
+      // 파티클 효과
       if (this.particles) {
         try {
-          // Phaser 3.60+ 파티클 시스템
+          // 파티클 색상 및 스케일 조정
           const emitter = this.particles as any
+          
+          // 색상 설정
+          if (emitter.setTint) {
+            emitter.setTint(particleColor)
+          } else if (emitter.particleTint) {
+            emitter.particleTint = particleColor
+          }
+          
+          // 파티클 발사
           if (emitter.explode) {
-            emitter.explode(10, x, y)
+            emitter.explode(particleCount, x, y)
           } else if (emitter.emitParticleAt) {
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < particleCount; i++) {
               emitter.emitParticleAt(x, y)
             }
           }
@@ -222,14 +253,16 @@ export default class BattleScene extends Phaser.Scene {
         }
       }
 
-      // 가격 변동 텍스트 애니메이션 - 마커 원의 위쪽에 표시
+      // 가격 변동 텍스트 애니메이션
       const change = candle.close - candle.open
       const changeText = this.add.text(x, y - 30, 
         `${change > 0 ? '+' : ''}$${change.toFixed(2)}`,
         {
-          fontSize: '20px',
-          color: isUp ? '#00ff00' : '#ff0000',
+          fontSize: intensity === 1 ? '16px' : intensity === 2 ? '20px' : '24px',
+          color: isUp ? '#ffff00' : '#0088ff',
           fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 2,
         }
       )
       changeText.setOrigin(0.5, 1) // 텍스트 중앙 정렬
@@ -423,25 +456,16 @@ export default class BattleScene extends Phaser.Scene {
       }
     })
 
-    // 마지막 캔들에 원형 마커 추가
+    // 마지막 캔들의 마커 위치만 저장 (원은 그리지 않음)
     if (candles.length > 0) {
       const lastCandle = candles[candles.length - 1]
       const lastIndex = candles.length - 1
       const x = startX + lastIndex * (dynamicCandleWidth + dynamicCandleGap) + dynamicCandleWidth / 2
       const closeY = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
       
-      // 마커 위치 저장
+      // 마커 위치만 저장 (이펙트 발생 위치로 사용)
       this.currentMarkerX = x
       this.currentMarkerY = closeY
-      
-      // 원형 마커 그리기 (선 두께의 4배 = 약 12px 반지름)
-      const markerGraphics = this.add.graphics()
-      if (markerGraphics) {
-        const isUp = lastCandle.close >= lastCandle.open
-        markerGraphics.fillStyle(isUp ? 0x00ff88 : 0xff4444, 1)
-        markerGraphics.fillCircle(x, closeY, 6)
-        this.markerCircle = markerGraphics
-      }
     }
     } catch (error) {
       console.error('Error in renderCandlestickChart:', error)
@@ -521,24 +545,16 @@ export default class BattleScene extends Phaser.Scene {
 
       this.candleGraphics.push(graphics)
 
-      // 마지막 포인트에 원형 마커 추가
+      // 마지막 포인트의 마커 위치만 저장 (원은 그리지 않음)
       if (candles.length > 0) {
         const lastCandle = candles[candles.length - 1]
         const lastIndex = candles.length - 1
         const x = startX + lastIndex * pointSpacing
         const y = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
         
-        // 마커 위치 저장
+        // 마커 위치만 저장 (이펙트 발생 위치로 사용)
         this.currentMarkerX = x
         this.currentMarkerY = y
-        
-        // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
-        const markerGraphics = this.add.graphics()
-        if (markerGraphics) {
-          markerGraphics.fillStyle(lineColor, 1)
-          markerGraphics.fillCircle(x, y, 6)
-          this.markerCircle = markerGraphics
-        }
       }
 
       // 볼륨 바 그리기
@@ -599,24 +615,16 @@ export default class BattleScene extends Phaser.Scene {
 
       this.candleGraphics.push(graphics)
 
-      // 마지막 포인트에 원형 마커 추가
+      // 마지막 포인트의 마커 위치만 저장 (원은 그리지 않음)
       if (candles.length > 0) {
         const lastCandle = candles[candles.length - 1]
         const lastIndex = candles.length - 1
         const x = startX + lastIndex * pointSpacing
         const y = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
         
-        // 마커 위치 저장
+        // 마커 위치만 저장 (이펙트 발생 위치로 사용)
         this.currentMarkerX = x
         this.currentMarkerY = y
-        
-        // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
-        const markerGraphics = this.add.graphics()
-        if (markerGraphics) {
-          markerGraphics.fillStyle(lineColor, 1)
-          markerGraphics.fillCircle(x, y, 6)
-          this.markerCircle = markerGraphics
-        }
       }
 
       // 볼륨 바 그리기
