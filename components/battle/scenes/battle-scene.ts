@@ -219,13 +219,13 @@ export default class BattleScene extends Phaser.Scene {
       }
 
       // 색상 결정
-      // 녹색 캔들 (상승): 노란색 이펙트 (공격받음)
-      // 빨간색 캔들 (하락): 파란색 이펙트 (공격함)
-      const particleColor = isUp ? 0xffff00 : 0x0088ff
+      // 녹색 캔들 (상승): 파란색 이펙트
+      // 빨간색 캔들 (하락): 오렌지 이펙트
+      const particleColor = isUp ? 0x0088ff : 0xff8800
       
-      // 강도에 따른 파티클 수
+      // 강도에 따른 파티클 수와 크기
       const particleCount = intensity === 1 ? 10 : intensity === 2 ? 20 : 30
-      const particleScale = intensity === 1 ? 0.8 : intensity === 2 ? 1.2 : 1.8
+      const particleSize = intensity === 1 ? 3 : intensity === 2 ? 4.5 : 6  // 원의 크기 (반지름)
 
       // 파티클 효과
       if (this.particles) {
@@ -253,13 +253,33 @@ export default class BattleScene extends Phaser.Scene {
         }
       }
 
+      // 강도에 따른 이펙트 원 그리기
+      const effectCircle = this.add.graphics()
+      if (effectCircle) {
+        effectCircle.lineStyle(2, particleColor, 0.8)
+        effectCircle.strokeCircle(x, y, particleSize)
+        
+        // 원 확장 애니메이션
+        this.tweens.add({
+          targets: effectCircle,
+          alpha: 0,
+          duration: 600,
+          onUpdate: () => {
+            effectCircle.clear()
+            effectCircle.lineStyle(2, particleColor, effectCircle.alpha)
+            effectCircle.strokeCircle(x, y, particleSize + (1 - effectCircle.alpha) * 10)
+          },
+          onComplete: () => effectCircle.destroy(),
+        })
+      }
+
       // 가격 변동 텍스트 애니메이션
       const change = candle.close - candle.open
       const changeText = this.add.text(x, y - 30, 
         `${change > 0 ? '+' : ''}$${change.toFixed(2)}`,
         {
           fontSize: intensity === 1 ? '16px' : intensity === 2 ? '20px' : '24px',
-          color: isUp ? '#ffff00' : '#0088ff',
+          color: isUp ? '#0088ff' : '#ff8800',
           fontStyle: 'bold',
           stroke: '#000000',
           strokeThickness: 2,
