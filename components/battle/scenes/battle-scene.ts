@@ -283,6 +283,9 @@ export default class BattleScene extends Phaser.Scene {
         const maxLineLength = intensity === 1 ? 35 : intensity === 2 ? 50 : 70
         const lineThickness = intensity === 1 ? 4 : intensity === 2 ? 6 : 8
         
+        // 임팩트 라인 색상 설정 (화이트로 고정)
+        const impactLineColor = 0xffffff  // 흰색 라인
+        
         // 방사형 라인 애니메이션
         let progress = 0
         this.tweens.add({
@@ -299,7 +302,7 @@ export default class BattleScene extends Phaser.Scene {
             const currentAlpha = Math.max(0, 1 - progress * 1.2)
             const currentLength = maxLineLength * Math.min(1, progress * 1.5)
             
-            impactLines.lineStyle(lineThickness, particleColor, currentAlpha)
+            impactLines.lineStyle(lineThickness, impactLineColor, currentAlpha)
             
             // 각 라인을 방사형으로 그리기
             for (let i = 0; i < lineCount; i++) {
