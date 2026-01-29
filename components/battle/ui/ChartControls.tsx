@@ -57,37 +57,45 @@ export function ChartControls({
   }
 
   return (
-    <div className="flex items-center justify-between gap-2">
-      {/* Chart Type Button - 순환 */}
-      <Button
-        variant="default"
-        size="sm"
-        onClick={cycleChartType}
-        className="h-7 px-3 text-xs bg-primary text-primary-foreground"
-      >
-        {getChartTypeLabel(chartType)}
-      </Button>
+    <div className="flex items-center justify-between gap-3">
+      {/* Chart Type - 오렌지 */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-orange-500 font-medium">차트타입</span>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={cycleChartType}
+          className="h-7 px-3 text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
+        >
+          {getChartTypeLabel(chartType)}
+        </Button>
+      </div>
 
-      {/* Candle Count Button - 순환 */}
-      <Button
-        variant="default"
-        size="sm"
-        onClick={cycleCandleCount}
-        className="h-7 px-3 text-xs bg-primary text-primary-foreground"
-      >
-        {candleCount}x
-      </Button>
+      {/* Candle Count - 퍼플 */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-purple-500 font-medium">캔들개수</span>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={cycleCandleCount}
+          className="h-7 px-3 text-xs bg-purple-500 hover:bg-purple-600 text-white border-0"
+        >
+          {candleCount}x
+        </Button>
+      </div>
 
-      {/* Speed Button - 순환 */}
-      <Button
-        variant="default"
-        size="sm"
-        onClick={cycleSpeed}
-        className="h-7 px-3 text-xs bg-primary text-primary-foreground flex items-center gap-1"
-      >
-        <span className="text-[10px] text-primary-foreground/70">Speed:</span>
-        <span>x{speedMultiplier}</span>
-      </Button>
+      {/* Speed - 블루 */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-blue-500 font-medium">속도</span>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={cycleSpeed}
+          className="h-7 px-3 text-xs bg-blue-500 hover:bg-blue-600 text-white border-0"
+        >
+          x{speedMultiplier}
+        </Button>
+      </div>
     </div>
   )
 }
