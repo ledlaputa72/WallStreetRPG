@@ -273,6 +273,49 @@ export default class BattleScene extends Phaser.Scene {
         })
       }
 
+      // 타격 이펙트: 방사형 임팩트 라인
+      const impactLines = this.add.graphics()
+      if (impactLines) {
+        // 강도에 따른 라인 수와 길이
+        const lineCount = intensity === 1 ? 6 : intensity === 2 ? 8 : 12
+        const maxLineLength = intensity === 1 ? 20 : intensity === 2 ? 30 : 40
+        const lineThickness = intensity === 1 ? 2 : intensity === 2 ? 3 : 4
+        
+        // 방사형 라인 애니메이션
+        let progress = 0
+        this.tweens.add({
+          targets: { value: 0 },
+          value: 1,
+          duration: 400,
+          ease: 'Cubic.easeOut',
+          onUpdate: (tween) => {
+            const tweenProgress = tween.getValue()
+            progress = tweenProgress !== null ? tweenProgress : 0
+            impactLines.clear()
+            
+            const currentAlpha = 1 - progress
+            const currentLength = maxLineLength * progress
+            
+            impactLines.lineStyle(lineThickness, particleColor, currentAlpha)
+            
+            // 각 라인을 방사형으로 그리기
+            for (let i = 0; i < lineCount; i++) {
+              const angle = (Math.PI * 2 * i) / lineCount
+              const startX = x + Math.cos(angle) * particleSize
+              const startY = y + Math.sin(angle) * particleSize
+              const endX = x + Math.cos(angle) * (particleSize + currentLength)
+              const endY = y + Math.sin(angle) * (particleSize + currentLength)
+              
+              impactLines.beginPath()
+              impactLines.moveTo(startX, startY)
+              impactLines.lineTo(endX, endY)
+              impactLines.strokePath()
+            }
+          },
+          onComplete: () => impactLines.destroy(),
+        })
+      }
+
       // 가격 변동 텍스트 애니메이션
       const change = candle.close - candle.open
       const changeText = this.add.text(x, y - 30, 
