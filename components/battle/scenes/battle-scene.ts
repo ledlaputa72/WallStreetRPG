@@ -186,10 +186,12 @@ export default class BattleScene extends Phaser.Scene {
       this.candles.shift()
     }
 
-    // 새 캔들 생성 시 파티클 효과
+    // 먼저 차트를 렌더링하여 마커 위치 업데이트
+    this.renderChart()
+    
+    // 업데이트된 마커 위치에서 이펙트 발생
     this.showPriceChangeEffect(candle)
 
-    this.renderChart()
     eventBus.emit(EVENTS.CANDLE_GENERATED, candle)
   }
 
