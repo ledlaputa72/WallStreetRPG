@@ -27,6 +27,9 @@ export default class BattleScene extends Phaser.Scene {
   private particles: Phaser.GameObjects.Particles.ParticleEmitter | null = null
   private priceLabel: Phaser.GameObjects.Text | null = null
   private areaFillGraphics: Phaser.GameObjects.Graphics | null = null
+  private currentMarkerX: number = 0
+  private currentMarkerY: number = 0
+  private markerCircle: Phaser.GameObjects.Graphics | null = null
 
   constructor() {
     super('BattleScene')
@@ -198,11 +201,11 @@ export default class BattleScene extends Phaser.Scene {
     
     try {
       const isUp = candle.close > candle.open
-      // 차트의 오른쪽 끝 부근에 표시
-      const x = this.chartWidth - 100
-      const y = this.chartHeight / 3
+      // 현재 마커 위치 사용 (차트의 가장 오른쪽 끝 지점)
+      const x = this.currentMarkerX
+      const y = this.currentMarkerY
 
-      // 파티클 효과
+      // 파티클 효과 - 마커 원 주변에 발생
       if (this.particles) {
         try {
           // Phaser 3.60+ 파티클 시스템
@@ -219,9 +222,9 @@ export default class BattleScene extends Phaser.Scene {
         }
       }
 
-      // 가격 변동 텍스트 애니메이션
+      // 가격 변동 텍스트 애니메이션 - 마커 원의 위쪽에 표시
       const change = candle.close - candle.open
-      const changeText = this.add.text(x, y, 
+      const changeText = this.add.text(x, y - 30, 
         `${change > 0 ? '+' : ''}$${change.toFixed(2)}`,
         {
           fontSize: '20px',
@@ -229,10 +232,11 @@ export default class BattleScene extends Phaser.Scene {
           fontStyle: 'bold',
         }
       )
+      changeText.setOrigin(0.5, 1) // 텍스트 중앙 정렬
 
       this.tweens.add({
         targets: changeText,
-        y: y - 50,
+        y: y - 80,
         alpha: 0,
         duration: 1000,
         onComplete: () => changeText.destroy(),
@@ -279,6 +283,15 @@ export default class BattleScene extends Phaser.Scene {
           // 이미 파괴된 객체는 무시
         }
         this.areaFillGraphics = null
+      }
+
+      if (this.markerCircle) {
+        try {
+          this.markerCircle.destroy()
+        } catch (e) {
+          // 이미 파괴된 객체는 무시
+        }
+        this.markerCircle = null
       }
     } catch (error) {
       console.error('Error cleaning up graphics:', error)
@@ -409,6 +422,28 @@ export default class BattleScene extends Phaser.Scene {
         console.error('Error rendering candle:', error)
       }
     })
+
+    // 마지막 캔들에 원형 마커 추가
+    if (candles.length > 0) {
+      const lastCandle = candles[candles.length - 1]
+      const lastIndex = candles.length - 1
+      const x = startX + lastIndex * (dynamicCandleWidth + dynamicCandleGap) + dynamicCandleWidth / 2
+      const closeY = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
+      
+      // 마커 위치 저장
+      this.currentMarkerX = x
+      this.currentMarkerY = closeY
+      
+      // 원형 마커 그리기 (선 두께의 4배 = 약 12px 반지름)
+      this.markerCircle = this.add.graphics()
+      const isUp = lastCandle.close >= lastCandle.open
+      this.markerCircle.fillStyle(isUp ? 0x00ff88 : 0xff4444, 1)
+      this.markerCircle.fillCircle(x, closeY, 6)
+      
+      // 외곽선 추가
+      this.markerCircle.lineStyle(2, 0xffffff, 0.8)
+      this.markerCircle.strokeCircle(x, closeY, 6)
+    }
     } catch (error) {
       console.error('Error in renderCandlestickChart:', error)
     }
@@ -487,6 +522,27 @@ export default class BattleScene extends Phaser.Scene {
 
       this.candleGraphics.push(graphics)
 
+      // 마지막 포인트에 원형 마커 추가
+      if (candles.length > 0) {
+        const lastCandle = candles[candles.length - 1]
+        const lastIndex = candles.length - 1
+        const x = startX + lastIndex * pointSpacing
+        const y = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
+        
+        // 마커 위치 저장
+        this.currentMarkerX = x
+        this.currentMarkerY = y
+        
+        // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
+        this.markerCircle = this.add.graphics()
+        this.markerCircle.fillStyle(lineColor, 1)
+        this.markerCircle.fillCircle(x, y, 6)
+        
+        // 외곽선 추가
+        this.markerCircle.lineStyle(2, 0xffffff, 0.8)
+        this.markerCircle.strokeCircle(x, y, 6)
+      }
+
       // 볼륨 바 그리기
       this.renderVolumeBars(candles, maxVolume, startX, pointSpacing)
     } catch (error) {
@@ -544,6 +600,27 @@ export default class BattleScene extends Phaser.Scene {
       graphics.strokePath()
 
       this.candleGraphics.push(graphics)
+
+      // 마지막 포인트에 원형 마커 추가
+      if (candles.length > 0) {
+        const lastCandle = candles[candles.length - 1]
+        const lastIndex = candles.length - 1
+        const x = startX + lastIndex * pointSpacing
+        const y = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
+        
+        // 마커 위치 저장
+        this.currentMarkerX = x
+        this.currentMarkerY = y
+        
+        // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
+        this.markerCircle = this.add.graphics()
+        this.markerCircle.fillStyle(lineColor, 1)
+        this.markerCircle.fillCircle(x, y, 6)
+        
+        // 외곽선 추가
+        this.markerCircle.lineStyle(2, 0xffffff, 0.8)
+        this.markerCircle.strokeCircle(x, y, 6)
+      }
 
       // 볼륨 바 그리기
       this.renderVolumeBars(candles, maxVolume, startX, pointSpacing)
