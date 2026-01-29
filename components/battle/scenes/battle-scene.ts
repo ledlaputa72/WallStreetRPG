@@ -435,14 +435,13 @@ export default class BattleScene extends Phaser.Scene {
       this.currentMarkerY = closeY
       
       // 원형 마커 그리기 (선 두께의 4배 = 약 12px 반지름)
-      this.markerCircle = this.add.graphics()
-      const isUp = lastCandle.close >= lastCandle.open
-      this.markerCircle.fillStyle(isUp ? 0x00ff88 : 0xff4444, 1)
-      this.markerCircle.fillCircle(x, closeY, 6)
-      
-      // 외곽선 추가
-      this.markerCircle.lineStyle(2, 0xffffff, 0.8)
-      this.markerCircle.strokeCircle(x, closeY, 6)
+      const markerGraphics = this.add.graphics()
+      if (markerGraphics) {
+        const isUp = lastCandle.close >= lastCandle.open
+        markerGraphics.fillStyle(isUp ? 0x00ff88 : 0xff4444, 1)
+        markerGraphics.fillCircle(x, closeY, 6)
+        this.markerCircle = markerGraphics
+      }
     }
     } catch (error) {
       console.error('Error in renderCandlestickChart:', error)
@@ -534,13 +533,12 @@ export default class BattleScene extends Phaser.Scene {
         this.currentMarkerY = y
         
         // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
-        this.markerCircle = this.add.graphics()
-        this.markerCircle.fillStyle(lineColor, 1)
-        this.markerCircle.fillCircle(x, y, 6)
-        
-        // 외곽선 추가
-        this.markerCircle.lineStyle(2, 0xffffff, 0.8)
-        this.markerCircle.strokeCircle(x, y, 6)
+        const markerGraphics = this.add.graphics()
+        if (markerGraphics) {
+          markerGraphics.fillStyle(lineColor, 1)
+          markerGraphics.fillCircle(x, y, 6)
+          this.markerCircle = markerGraphics
+        }
       }
 
       // 볼륨 바 그리기
@@ -613,13 +611,12 @@ export default class BattleScene extends Phaser.Scene {
         this.currentMarkerY = y
         
         // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
-        this.markerCircle = this.add.graphics()
-        this.markerCircle.fillStyle(lineColor, 1)
-        this.markerCircle.fillCircle(x, y, 6)
-        
-        // 외곽선 추가
-        this.markerCircle.lineStyle(2, 0xffffff, 0.8)
-        this.markerCircle.strokeCircle(x, y, 6)
+        const markerGraphics = this.add.graphics()
+        if (markerGraphics) {
+          markerGraphics.fillStyle(lineColor, 1)
+          markerGraphics.fillCircle(x, y, 6)
+          this.markerCircle = markerGraphics
+        }
       }
 
       // 볼륨 바 그리기
