@@ -1,0 +1,13 @@
+# Environment Variables Template
+# Copy this file to .env.local and fill in your values
+
+# Vercel Analytics (optional)
+# Get your ID from: https://vercel.com/docs/analytics
+# NEXT_PUBLIC_VERCEL_ANALYTICS_ID=
+
+# API Configuration (if needed in the future)
+# NEXT_PUBLIC_API_URL=http://localhost:3000/api
+
+# Game Configuration (optional)
+# NEXT_PUBLIC_GAME_VERSION=1.0.0
+# NEXT_PUBLIC_DEBUG_MODE=false
