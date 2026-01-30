@@ -101,13 +101,13 @@ export function BattlePage() {
     setGameState('LOADING')
     
     try {
-      console.log('🎯 Starting new simulation: Fetching ONE random ticker/year...')
+      // API 1회만 호출 (1년치 전체 로드)
       const response = await fetch('/api/market?type=historical')
       const result = await response.json()
 
       if (result.success && result.data && result.data.length > 0) {
-        console.log(`✅ Simulation loaded: ${result.symbol} - ${result.stockName} (${result.year})`)
-        console.log(`📊 Full year data loaded: ${result.data.length} trading days`)
+        // API 호출 1회만 완료. 이후에는 fullYearData에서만 순차 재생 (추가 fetch 없음)
+        console.log(`✅ [1회 로드] ${result.symbol} - ${result.stockName} (${result.year}), ${result.data.length}일치 메모리 저장 → 이제 재생만 함`)
         
         // Clear existing chart data via event bus
         eventBus.emit(EVENTS.CLEAR_CHART)
@@ -131,8 +131,6 @@ export function BattlePage() {
 
   // Stop simulation and reset
   const stopSimulation = useCallback(() => {
-    console.log('⏹️ Stopping simulation...')
-    
     // Clear interval
     if (animationIntervalRef.current) {
       clearInterval(animationIntervalRef.current)
@@ -198,6 +196,7 @@ export function BattlePage() {
         const nextCandle = prev.fullYearData[prev.currentIndex]
         
         // Send to Phaser via event bus
+        // 이미 로드된 fullYearData에서 1일치만 꺼내서 Phaser로 전달 (API 호출 없음)
         eventBus.emit(EVENTS.NEW_CANDLE, {
           id: `${prev.symbol}-${prev.currentIndex}-${nextCandle.time}`,
           time: nextCandle.time,
@@ -207,8 +206,6 @@ export function BattlePage() {
           close: nextCandle.close,
           volume: nextCandle.volume
         })
-
-        console.log(`📈 Day ${prev.currentIndex + 1}/${prev.fullYearData.length}: ${nextCandle.time} - Close: $${nextCandle.close}`)
 
         // Increment index
         return {
