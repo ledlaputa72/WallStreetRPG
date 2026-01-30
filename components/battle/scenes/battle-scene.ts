@@ -116,6 +116,12 @@ export default class BattleScene extends Phaser.Scene {
     // DO NOT auto-start - wait for React to send NEW_CANDLE events
     // this.startCandleGeneration() // REMOVED - React controls start/stop
 
+    // Initial render after scene is fully created
+    // Use time.delayedCall to ensure scene is fully active
+    this.time.delayedCall(100, () => {
+      this.renderChart()
+    })
+
     // Scene ready
     eventBus.emit(EVENTS.SCENE_READY)
   }
@@ -481,7 +487,7 @@ export default class BattleScene extends Phaser.Scene {
 
   private renderChart() {
     // Comprehensive safety checks
-    if (!this.add || !this.sys?.isActive()) return
+    if (!this.add) return
     if (!this.gridGraphics || !this.candleGraphics || !this.volumeGraphics || !this.priceLineGraphics) return
 
     try {
