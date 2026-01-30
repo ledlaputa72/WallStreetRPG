@@ -13,6 +13,7 @@ interface StageInfoProps {
   symbol?: string
   stockName?: string
   year?: number
+  currentDate?: string // Current candle date
 }
 
 export function StageInfo({ 
@@ -26,6 +27,7 @@ export function StageInfo({
   symbol = 'AAPL',
   stockName,
   year,
+  currentDate,
 }: StageInfoProps) {
   const isProfit = parseFloat(profitPercent) >= 0
 
@@ -41,7 +43,10 @@ export function StageInfo({
             {year ? (
               <>
                 <Calendar className="h-3 w-3" />
-                <span>Historical Data - {year}</span>
+                <span>
+                  {year}
+                  {currentDate && <span className="ml-1 font-semibold text-foreground">{currentDate}</span>}
+                </span>
               </>
             ) : (
               'Real-time Market Data'

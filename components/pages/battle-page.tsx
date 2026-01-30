@@ -53,18 +53,10 @@ export function BattlePage() {
   const stage = '4-12'
   const wave = { current: 1, max: 5 }
   
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:52',message:'BattlePage component mounting',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion
-  
   // Game state management
   const [gameState, setGameState] = useState<GameState>('IDLE')
   const [stageData, setStageData] = useState<StageData | null>(null)
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:59',message:'Initial state set',data:{gameState:'IDLE',hasStageData:false},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion
   
   const {
     phaserRef,
@@ -91,12 +83,21 @@ export function BattlePage() {
   const displaySymbol = stageData?.symbol || (gameState === 'IDLE' ? 'Press Start' : 'LOADING...')
   const displayStockName = stageData?.stockName
   const displayYear = stageData?.year
+  
+  // Get current candle date (latest displayed candle)
+  const displayDate = useMemo(() => {
+    if (!stageData || stageData.currentIndex === 0) return undefined
+    const currentCandle = stageData.fullYearData[stageData.currentIndex - 1]
+    if (!currentCandle?.time) return undefined
+    
+    const date = new Date(currentCandle.time)
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    return `${month}-${day}`
+  }, [stageData])
 
   // Fetch new simulation data
   const fetchNewSimulation = useCallback(async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:88',message:'fetchNewSimulation CALLED',data:{stackTrace:new Error().stack?.split('\n').slice(0,5)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
     setGameState('LOADING')
     
     try {
@@ -148,9 +149,6 @@ export function BattlePage() {
 
   // Handle Start/Stop button
   const handleStartStop = useCallback(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:139',message:'handleStartStop CLICKED',data:{gameState},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
     if (gameState === 'IDLE') {
       fetchNewSimulation()
     } else if (gameState === 'PLAYING') {
@@ -160,13 +158,7 @@ export function BattlePage() {
 
   // Sequential animation loop - START ONLY (no dependencies on changing state)
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:148',message:'Animation useEffect triggered',data:{gameState,hasStageData:!!stageData,symbol:stageData?.symbol},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     if (gameState !== 'PLAYING' || !stageData) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:149',message:'Animation effect SKIPPED (not playing)',data:{gameState,hasStageData:!!stageData},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       // Stop animation if not playing
       if (animationIntervalRef.current) {
         clearInterval(animationIntervalRef.current)
@@ -174,9 +166,6 @@ export function BattlePage() {
       }
       return
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:156',message:'Animation effect STARTING',data:{gameState,currentIndex:stageData.currentIndex,dataLength:stageData.fullYearData.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
 
     // Check if animation is complete at start
     if (stageData.currentIndex >= stageData.fullYearData.length) {
@@ -208,9 +197,6 @@ export function BattlePage() {
         // Get next day's data
         const nextCandle = prev.fullYearData[prev.currentIndex]
         
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:209',message:'✅ React emitting NEW_CANDLE',data:{index:prev.currentIndex,total:prev.fullYearData.length,time:nextCandle.time},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5',runId:'post-fix'})}).catch(()=>{});
-        // #endregion
         // Send to Phaser via event bus
         eventBus.emit(EVENTS.NEW_CANDLE, {
           id: `${prev.symbol}-${prev.currentIndex}-${nextCandle.time}`,
@@ -332,6 +318,7 @@ export function BattlePage() {
             symbol={displaySymbol}
             stockName={displayStockName}
             year={displayYear}
+            currentDate={displayDate}
           />
         </div>
 

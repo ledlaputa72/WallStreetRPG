@@ -40,6 +40,7 @@ export default class BattleScene extends Phaser.Scene {
   private currentMarkerX: number = 0
   private currentMarkerY: number = 0
   private markerCircle: Phaser.GameObjects.Graphics | null = null
+  private scrollOffsetX: number = 0 // For smooth scroll animation
 
   // Zoom and pan
   private zoomLevel: number = 1
@@ -112,10 +113,6 @@ export default class BattleScene extends Phaser.Scene {
     eventBus.on(EVENTS.UPDATE_MARKET_DATA, this.updateMarketData.bind(this))
     eventBus.on(EVENTS.CLEAR_CHART, this.clearChart.bind(this))
 
-    // #region agent log
-    console.error('✅ [FIX] Phaser create() - NOT auto-starting (waiting for React NEW_CANDLE events)')
-    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:115',message:'Phaser create() complete - NO auto-start',data:{hasHistoricalQueue:this.historicalQueue.length,isPlayingHistorical:this.isPlayingHistorical},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
-    // #endregion
     // DO NOT auto-start - wait for React to send NEW_CANDLE events
     // this.startCandleGeneration() // REMOVED - React controls start/stop
 
@@ -200,10 +197,6 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private startCandleGeneration() {
-    // #region agent log
-    console.error('✅ [FIX] startCandleGeneration with 1000ms base interval')
-    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:198',message:'startCandleGeneration CALLED',data:{hasTime:!!this.time,speedMultiplier:this.speedMultiplier,hasExistingTimer:!!this.animationTimer},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
-    // #endregion
     if (!this.time) {
       console.warn('Scene time system not initialized')
       return
@@ -223,19 +216,12 @@ export default class BattleScene extends Phaser.Scene {
         },
         loop: true,
       })
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:218',message:'Animation timer CREATED',data:{interval:baseInterval/this.speedMultiplier,speedMultiplier:this.speedMultiplier},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
     } catch (error) {
       console.error('Error starting candle generation:', error)
     }
   }
 
   private playNextCandle() {
-    // #region agent log
-    console.error('🔥 [H1] playNextCandle CALLED', {isHistorical: this.isPlayingHistorical, queue: this.historicalQueue.length, candles: this.candles.length})
-    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:233',message:'playNextCandle CALLED',data:{isPlayingHistorical:this.isPlayingHistorical,queueLength:this.historicalQueue.length,candlesCount:this.candles.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
     // If playing historical data, play from queue
     if (this.isPlayingHistorical && this.historicalQueue.length > 0) {
       const nextCandle = this.historicalQueue.shift()
@@ -249,10 +235,6 @@ export default class BattleScene extends Phaser.Scene {
         console.log('Historical data playback completed')
       }
     } else {
-      // #region agent log
-      console.error('🔥🔥🔥 [H1] Generating SYNTHETIC candle - THIS IS THE AUTO-START BUG!', {price: this.currentPrice})
-      fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:246',message:'Generating SYNTHETIC candle (auto-generation)',data:{currentPrice:this.currentPrice},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       // Generate synthetic candle
       this.generateNewCandle()
     }
@@ -376,9 +358,32 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private animateChartShift() {
-    // Render with animation
+    if (!this.tweens) return
+
+    // Calculate scroll distance (one candle width)
+    const effectiveCount = Math.floor(this.visibleCandleCount / this.zoomLevel)
+    const candleWidth = this.chartWidth / effectiveCount
+
+    // Set initial scroll offset (new candle enters from right)
+    this.scrollOffsetX = candleWidth
+
+    // Render chart immediately with offset
     this.renderChart()
-    this.showPriceChangeEffect(this.candles[this.candles.length - 1])
+
+    // Animate scroll back to 0 (smooth left movement)
+    this.tweens.add({
+      targets: this,
+      scrollOffsetX: 0,
+      duration: 300, // Smooth 300ms animation
+      ease: 'Cubic.easeOut',
+      onUpdate: () => {
+        this.renderChart() // Re-render during animation
+      },
+      onComplete: () => {
+        this.scrollOffsetX = 0
+        this.showPriceChangeEffect(this.candles[this.candles.length - 1])
+      }
+    })
   }
 
   private showPriceChangeEffect(candle: CandleData) {
@@ -687,7 +692,7 @@ export default class BattleScene extends Phaser.Scene {
     const startX = this.chartPadding.left
 
     candles.forEach((candle, index) => {
-      const x = startX + index * (candleWidth + candleGap)
+      const x = startX + index * (candleWidth + candleGap) - this.scrollOffsetX
       const isUp = candle.close >= candle.open
       const color = isUp ? this.BULL_COLOR : this.BEAR_COLOR
 
@@ -768,7 +773,7 @@ export default class BattleScene extends Phaser.Scene {
     graphics.beginPath()
 
     candles.forEach((candle, index) => {
-      const x = startX + index * pointSpacing
+      const x = startX + index * pointSpacing - this.scrollOffsetX
       const y = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
 
       if (index === 0) {
@@ -786,7 +791,7 @@ export default class BattleScene extends Phaser.Scene {
     const chartBottom = this.chartPadding.top + this.chartHeight
 
     candles.forEach((candle, index) => {
-      const x = startX + index * pointSpacing
+      const x = startX + index * pointSpacing - this.scrollOffsetX
       const y = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
 
       if (index === 0) {
@@ -804,7 +809,7 @@ export default class BattleScene extends Phaser.Scene {
     // Marker at last point
     if (candles.length > 0) {
       const lastCandle = candles[candles.length - 1]
-      const x = startX + (candles.length - 1) * pointSpacing
+      const x = startX + (candles.length - 1) * pointSpacing - this.scrollOffsetX
       const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
 
       this.currentMarkerX = x
@@ -841,7 +846,7 @@ export default class BattleScene extends Phaser.Scene {
     graphics.beginPath()
 
     candles.forEach((candle, index) => {
-      const x = startX + index * pointSpacing
+      const x = startX + index * pointSpacing - this.scrollOffsetX
       const y = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
 
       if (index === 0) {
@@ -855,7 +860,7 @@ export default class BattleScene extends Phaser.Scene {
     // Marker at last point
     if (candles.length > 0) {
       const lastCandle = candles[candles.length - 1]
-      const x = startX + (candles.length - 1) * pointSpacing
+      const x = startX + (candles.length - 1) * pointSpacing - this.scrollOffsetX
       const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
 
       this.currentMarkerX = x
@@ -877,7 +882,7 @@ export default class BattleScene extends Phaser.Scene {
     const barWidth = Math.max(2, spacing * 0.7)
 
     candles.forEach((candle, index) => {
-      const x = startX + index * spacing - barWidth / 2
+      const x = startX + index * spacing - barWidth / 2 - this.scrollOffsetX
       const volumeHeight = (candle.volume / maxVolume) * this.volumeHeight
       const volumeY = this.chartPadding.top + this.chartHeight + 10
 
@@ -917,10 +922,6 @@ export default class BattleScene extends Phaser.Scene {
   private changeSpeed(multiplier: number) {
     this.speedMultiplier = multiplier
     // No need to restart timer - React controls animation timing
-    // #region agent log
-    console.error('✅ [FIX] changeSpeed - multiplier updated, React controls timing')
-    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:900',message:'changeSpeed called',data:{multiplier},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
-    // #endregion
   }
 
   private changeCandleCount(count: number) {
