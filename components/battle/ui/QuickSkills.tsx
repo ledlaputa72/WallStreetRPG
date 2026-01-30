@@ -55,8 +55,8 @@ export function QuickSkills({ skills }: QuickSkillsProps) {
                 )} />
                 {expanded && (
                   <>
-                    <span className="text-[10px] font-medium text-center line-clamp-1">{skill.name}</span>
-                    <Badge variant="outline" className="text-[8px] px-1 py-0">Lv.{skill.level}</Badge>
+                    <span className="text-xs sm:text-sm font-medium text-center line-clamp-1">{skill.name}</span>
+                    <Badge variant="outline" className="text-xs px-1.5 py-0">Lv.{skill.level}</Badge>
                   </>
                 )}
               </motion.button>

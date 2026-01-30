@@ -29,8 +29,9 @@ export default class BattleScene extends Phaser.Scene {
   private visibleCandleCount: number = 20
   private chartHeight: number = 0
   private chartWidth: number = 0
-  private chartPadding = { top: 40, right: 80, bottom: 100, left: 10 }
-  private volumeHeight: number = 60
+  private chartPadding = { top: 36, right: 72, bottom: 88, left: 12 }
+  private volumeHeight: number = 56
+  private labelFontSize: number = 14 // Readable font size for chart labels (responsive in create())
   private animationTimer: Phaser.Time.TimerEvent | null = null
   private currentPrice: number = 125000
   private particles: Phaser.GameObjects.Particles.ParticleEmitter | null = null
@@ -86,6 +87,7 @@ export default class BattleScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.cameras.main
+    this.labelFontSize = Math.max(12, Math.min(18, Math.floor(width / 40)))
     this.chartWidth = width - this.chartPadding.left - this.chartPadding.right
     this.chartHeight = height - this.chartPadding.top - this.chartPadding.bottom - this.volumeHeight
 
@@ -455,7 +457,7 @@ export default class BattleScene extends Phaser.Scene {
         y - 20,
         `${change > 0 ? '+' : ''}$${change.toFixed(2)}`,
         {
-          fontSize: intensity === 1 ? '12px' : intensity === 2 ? '14px' : '16px',
+          fontSize: intensity === 1 ? `${this.labelFontSize}px` : intensity === 2 ? `${this.labelFontSize + 2}px` : `${this.labelFontSize + 4}px`,
           color: isUp ? '#22c55e' : '#ef4444',
           fontStyle: 'bold',
           stroke: '#000000',
@@ -604,7 +606,7 @@ export default class BattleScene extends Phaser.Scene {
           y,
           `$${price.toFixed(2)}`,
           {
-            fontSize: '11px',
+            fontSize: `${this.labelFontSize}px`,
             color: '#94a3b8',
           }
         )
@@ -659,7 +661,7 @@ export default class BattleScene extends Phaser.Scene {
         y,
         `$${currentPrice.toFixed(2)}`,
         {
-          fontSize: '12px',
+          fontSize: `${this.labelFontSize + 1}px`,
           color: '#000000',
           backgroundColor: isUp ? '#22c55e' : '#ef4444',
           padding: { x: 4, y: 2 },
@@ -701,7 +703,7 @@ export default class BattleScene extends Phaser.Scene {
         y,
         `${label}: $${price.toFixed(2)}`,
         {
-          fontSize: '10px',
+          fontSize: `${Math.max(11, this.labelFontSize - 2)}px`,
           color: color === 0x22c55e ? '#22c55e' : '#ef4444',
         }
       )
@@ -948,7 +950,7 @@ export default class BattleScene extends Phaser.Scene {
           const date = new Date(candle.time)
           const monthDay = `${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`
           const dateLabel = this.add.text(x, volumeY + this.volumeHeight + 5, monthDay, {
-            fontSize: '10px',
+            fontSize: `${Math.max(11, this.labelFontSize - 2)}px`,
             color: '#888888',
             fontFamily: 'monospace'
           })

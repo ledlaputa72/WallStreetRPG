@@ -63,8 +63,8 @@ export function QuickInventory({ items }: QuickInventoryProps) {
                 )} />
                 {expanded && (
                   <>
-                    <span className="text-[10px] font-medium text-center line-clamp-1">{item.name}</span>
-                    <Badge variant="outline" className="text-[8px] px-1 py-0">+{item.level}</Badge>
+                    <span className="text-xs sm:text-sm font-medium text-center line-clamp-1">{item.name}</span>
+                    <Badge variant="outline" className="text-xs px-1.5 py-0">+{item.level}</Badge>
                   </>
                 )}
               </motion.button>

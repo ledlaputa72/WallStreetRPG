@@ -300,10 +300,10 @@ export function BattlePage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-[#09090b]">
-      {/* Stock Chart Section - Fixed Height (40% of screen) */}
-      <section className="h-[40vh] min-h-[400px] border-b border-primary/20 flex flex-col gap-0 flex-shrink-0">
+      {/* Stock Chart Section - Fixed Height (45% on desktop, min 420px) */}
+      <section className="h-[45vh] min-h-[420px] md:min-h-[440px] border-b border-primary/20 flex flex-col gap-0 flex-shrink-0">
         {/* Header */}
-        <div className="flex-shrink-0 p-3 border-b border-primary/10">
+        <div className="flex-shrink-0 p-3 md:p-4 border-b border-primary/10">
           <StageInfo
             stage={stage}
             currentWave={wave.current}
@@ -333,7 +333,7 @@ export function BattlePage() {
         </div>
 
         {/* Chart Controls */}
-        <div className="flex-shrink-0 p-3 border-t border-primary/10 bg-card/5">
+        <div className="flex-shrink-0 p-3 md:p-4 border-t border-primary/10 bg-card/5">
           <ChartControls
             gameState={gameState}
             chartType={chartType}

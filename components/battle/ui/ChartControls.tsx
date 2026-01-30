@@ -75,54 +75,50 @@ export function ChartControls({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      {/* Start/Stop Button - 초록/빨강 */}
-      <div className="flex items-center gap-1.5">
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-2">
         <Button
           variant="default"
           size="sm"
           onClick={onStartStop}
           disabled={gameState === 'LOADING'}
-          className={cn("h-7 px-3 text-xs text-white border-0", getStartStopColor())}
+          className={cn("h-9 px-4 text-sm font-medium text-white border-0", getStartStopColor())}
         >
           {getStartStopLabel()}
         </Button>
       </div>
 
-      {/* Chart Type - 오렌지 */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-orange-500 font-medium">차트타입</span>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-orange-500 font-medium">차트타입</span>
         <Button
           variant="default"
           size="sm"
           onClick={cycleChartType}
-          className="h-7 px-3 text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
+          className="h-9 px-4 text-sm font-medium bg-orange-500 hover:bg-orange-600 text-white border-0"
         >
           {getChartTypeLabel(chartType)}
         </Button>
       </div>
 
-      {/* Candle Count - 퍼플 */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-purple-500 font-medium">캔들개수</span>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-purple-500 font-medium">캔들개수</span>
         <Button
           variant="default"
           size="sm"
           onClick={cycleCandleCount}
-          className="h-7 px-3 text-xs bg-purple-500 hover:bg-purple-600 text-white border-0"
+          className="h-9 px-4 text-sm font-medium bg-purple-500 hover:bg-purple-600 text-white border-0"
         >
           {candleCount}x
         </Button>
       </div>
 
-      {/* Speed - 블루 */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-blue-500 font-medium">속도</span>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-blue-500 font-medium">속도</span>
         <Button
           variant="default"
           size="sm"
           onClick={cycleSpeed}
-          className="h-7 px-3 text-xs bg-blue-500 hover:bg-blue-600 text-white border-0"
+          className="h-9 px-4 text-sm font-medium bg-blue-500 hover:bg-blue-600 text-white border-0"
         >
           x{speedMultiplier}
         </Button>
