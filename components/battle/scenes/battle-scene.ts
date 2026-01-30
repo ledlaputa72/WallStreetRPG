@@ -341,9 +341,10 @@ export default class BattleScene extends Phaser.Scene {
   private addNewCandle(candle: CandleData) {
     this.candles.push(candle)
 
-    const maxCandles = Math.max(100, this.visibleCandleCount + 20)
+    // Keep all candles up to 1 year (250 trading days)
+    const maxCandles = 300
     if (this.candles.length > maxCandles) {
-      this.candles.shift()
+      this.candles.shift() // Remove oldest candle (sliding window)
     }
 
     // Update current price
@@ -358,7 +359,8 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private animateChartShift() {
-    if (!this.tweens) return
+    // Skip animation if scene is not ready
+    if (!this.tweens || !this.add || !this.sys?.isActive()) return
 
     // Calculate scroll distance (one candle width)
     const effectiveCount = Math.floor(this.visibleCandleCount / this.zoomLevel)
@@ -371,17 +373,24 @@ export default class BattleScene extends Phaser.Scene {
     this.renderChart()
 
     // Animate scroll back to 0 (smooth left movement)
+    // Use shorter duration and fewer updates to avoid object creation overhead
     this.tweens.add({
       targets: this,
       scrollOffsetX: 0,
-      duration: 300, // Smooth 300ms animation
+      duration: 200, // Faster animation (200ms)
       ease: 'Cubic.easeOut',
       onUpdate: () => {
-        this.renderChart() // Re-render during animation
+        // Only render if scene is still active
+        if (this.add && this.sys?.isActive()) {
+          this.renderChart()
+        }
       },
       onComplete: () => {
         this.scrollOffsetX = 0
-        this.showPriceChangeEffect(this.candles[this.candles.length - 1])
+        // Show effect only if scene is still active
+        if (this.add && this.tweens && this.candles.length > 0) {
+          this.showPriceChangeEffect(this.candles[this.candles.length - 1])
+        }
       }
     })
   }
@@ -471,27 +480,48 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private renderChart() {
-    if (!this.add) return
+    // Comprehensive safety checks
+    if (!this.add || !this.sys?.isActive()) return
+    if (!this.gridGraphics || !this.candleGraphics || !this.volumeGraphics || !this.priceLineGraphics) return
 
     try {
       // Clear all graphics
-      this.gridGraphics?.clear()
-      this.candleGraphics?.clear()
-      this.volumeGraphics?.clear()
-      this.priceLineGraphics?.clear()
+      this.gridGraphics.clear()
+      this.candleGraphics.clear()
+      this.volumeGraphics.clear()
+      this.priceLineGraphics.clear()
 
-      // Clear price labels
-      this.priceLabels.forEach(label => label.destroy())
+      // Safely clear price labels
+      this.priceLabels.forEach(label => {
+        try {
+          if (label && label.destroy) {
+            label.destroy()
+          }
+        } catch (e) {
+          // Ignore destroy errors
+        }
+      })
       this.priceLabels = []
-      this.currentPriceLabel?.destroy()
-      this.currentPriceLabel = null
+      
+      if (this.currentPriceLabel) {
+        try {
+          this.currentPriceLabel.destroy()
+        } catch (e) {
+          // Ignore
+        }
+        this.currentPriceLabel = null
+      }
 
       if (this.markerCircle) {
-        this.markerCircle.destroy()
+        try {
+          this.markerCircle.destroy()
+        } catch (e) {
+          // Ignore
+        }
         this.markerCircle = null
       }
 
-      // Calculate visible range based on zoom and pan
+      // Calculate visible range - sliding window showing last N candles
       const effectiveCount = Math.floor(this.visibleCandleCount / this.zoomLevel)
       const panCandles = Math.floor(this.panOffset / (15 * this.zoomLevel))
       const startIndex = Math.max(0, this.candles.length - effectiveCount - panCandles)
@@ -550,7 +580,7 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private drawGrid(minPrice: number, maxPrice: number, priceRange: number) {
-    if (!this.gridGraphics) return
+    if (!this.gridGraphics || !this.add) return
 
     const graphics = this.gridGraphics
     graphics.lineStyle(1, this.GRID_COLOR, 0.3)
@@ -570,18 +600,22 @@ export default class BattleScene extends Phaser.Scene {
       graphics.strokePath()
 
       // Price label on right side
-      const price = maxPrice - (priceRange / priceSteps) * i
-      const label = this.add.text(
-        endX + 5,
-        y,
-        `$${price.toFixed(2)}`,
-        {
-          fontSize: '11px',
-          color: '#94a3b8',
-        }
-      )
-      label.setOrigin(0, 0.5)
-      this.priceLabels.push(label)
+      try {
+        const price = maxPrice - (priceRange / priceSteps) * i
+        const label = this.add.text(
+          endX + 5,
+          y,
+          `$${price.toFixed(2)}`,
+          {
+            fontSize: '11px',
+            color: '#94a3b8',
+          }
+        )
+        label.setOrigin(0, 0.5)
+        this.priceLabels.push(label)
+      } catch (e) {
+        // Skip label if creation fails
+      }
     }
 
     // Vertical grid lines (time)
@@ -596,7 +630,7 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private drawCurrentPriceLine(candles: CandleData[], minPrice: number, priceRange: number) {
-    if (!this.priceLineGraphics || candles.length === 0) return
+    if (!this.priceLineGraphics || !this.add || candles.length === 0) return
 
     const lastCandle = candles[candles.length - 1]
     const currentPrice = lastCandle.close
@@ -621,24 +655,28 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     // Current price label
-    const isUp = lastCandle.close >= lastCandle.open
-    this.currentPriceLabel = this.add.text(
-      endX + 5,
-      y,
-      `$${currentPrice.toFixed(2)}`,
-      {
-        fontSize: '12px',
-        color: '#000000',
-        backgroundColor: isUp ? '#22c55e' : '#ef4444',
-        padding: { x: 4, y: 2 },
-        fontStyle: 'bold',
-      }
-    )
-    this.currentPriceLabel.setOrigin(0, 0.5)
+    try {
+      const isUp = lastCandle.close >= lastCandle.open
+      this.currentPriceLabel = this.add.text(
+        endX + 5,
+        y,
+        `$${currentPrice.toFixed(2)}`,
+        {
+          fontSize: '12px',
+          color: '#000000',
+          backgroundColor: isUp ? '#22c55e' : '#ef4444',
+          padding: { x: 4, y: 2 },
+          fontStyle: 'bold',
+        }
+      )
+      this.currentPriceLabel.setOrigin(0, 0.5)
+    } catch (e) {
+      // Skip label if creation fails
+    }
   }
 
   private drawHorizontalLine(price: number, minPrice: number, priceRange: number, color: number, label: string) {
-    if (!this.priceLineGraphics) return
+    if (!this.priceLineGraphics || !this.add) return
 
     const y = this.chartPadding.top + ((priceRange - (price - minPrice)) / priceRange) * this.chartHeight
 
@@ -660,17 +698,21 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     // Label
-    const priceLabel = this.add.text(
-      endX + 5,
-      y,
-      `${label}: $${price.toFixed(2)}`,
-      {
-        fontSize: '10px',
-        color: color === 0x22c55e ? '#22c55e' : '#ef4444',
-      }
-    )
-    priceLabel.setOrigin(0, 0.5)
-    this.priceLabels.push(priceLabel)
+    try {
+      const priceLabel = this.add.text(
+        endX + 5,
+        y,
+        `${label}: $${price.toFixed(2)}`,
+        {
+          fontSize: '10px',
+          color: color === 0x22c55e ? '#22c55e' : '#ef4444',
+        }
+      )
+      priceLabel.setOrigin(0, 0.5)
+      this.priceLabels.push(priceLabel)
+    } catch (e) {
+      // Skip label if creation fails
+    }
   }
 
   private renderCandlestickChart(
@@ -807,17 +849,21 @@ export default class BattleScene extends Phaser.Scene {
     graphics.fillPath()
 
     // Marker at last point
-    if (candles.length > 0) {
-      const lastCandle = candles[candles.length - 1]
-      const x = startX + (candles.length - 1) * pointSpacing - this.scrollOffsetX
-      const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
+    if (candles.length > 0 && this.add) {
+      try {
+        const lastCandle = candles[candles.length - 1]
+        const x = startX + (candles.length - 1) * pointSpacing - this.scrollOffsetX
+        const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
 
-      this.currentMarkerX = x
-      this.currentMarkerY = y
+        this.currentMarkerX = x
+        this.currentMarkerY = y
 
-      this.markerCircle = this.add.graphics()
-      this.markerCircle.fillStyle(lineColor, 1)
-      this.markerCircle.fillCircle(x, y, 5)
+        this.markerCircle = this.add.graphics()
+        this.markerCircle.fillStyle(lineColor, 1)
+        this.markerCircle.fillCircle(x, y, 5)
+      } catch (e) {
+        // Skip marker if creation fails
+      }
     }
 
     // Volume bars
@@ -858,17 +904,21 @@ export default class BattleScene extends Phaser.Scene {
     graphics.strokePath()
 
     // Marker at last point
-    if (candles.length > 0) {
-      const lastCandle = candles[candles.length - 1]
-      const x = startX + (candles.length - 1) * pointSpacing - this.scrollOffsetX
-      const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
+    if (candles.length > 0 && this.add) {
+      try {
+        const lastCandle = candles[candles.length - 1]
+        const x = startX + (candles.length - 1) * pointSpacing - this.scrollOffsetX
+        const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
 
-      this.currentMarkerX = x
-      this.currentMarkerY = y
+        this.currentMarkerX = x
+        this.currentMarkerY = y
 
-      this.markerCircle = this.add.graphics()
-      this.markerCircle.fillStyle(lineColor, 1)
-      this.markerCircle.fillCircle(x, y, 5)
+        this.markerCircle = this.add.graphics()
+        this.markerCircle.fillStyle(lineColor, 1)
+        this.markerCircle.fillCircle(x, y, 5)
+      } catch (e) {
+        // Skip marker if creation fails
+      }
     }
 
     // Volume bars
@@ -895,8 +945,8 @@ export default class BattleScene extends Phaser.Scene {
         volumeHeight
       )
       
-      // Add date labels below volume (show every 5th or 10th candle to avoid crowding)
-      if (candle.time && index % 10 === 0) {
+      // Add date labels below volume (show every 10th candle to avoid crowding)
+      if (this.add && candle.time && index % 10 === 0) {
         try {
           const date = new Date(candle.time)
           const monthDay = `${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`
@@ -908,7 +958,7 @@ export default class BattleScene extends Phaser.Scene {
           dateLabel.setOrigin(0.5, 0)
           this.priceLabels.push(dateLabel)
         } catch (err) {
-          // Skip if date parsing fails
+          // Skip if date parsing or label creation fails
         }
       }
     })

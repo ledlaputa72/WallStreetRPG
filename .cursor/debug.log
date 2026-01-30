@@ -1,0 +1,183 @@
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769801186251,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769801186253,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804943121,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:149","message":"Animation effect SKIPPED (not playing)","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804943159,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804943689,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804943696,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:148","message":"Animation useEffect triggered","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804943159,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804943121,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804943696,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:139","message":"handleStartStop CLICKED","data":{"gameState":"IDLE"},"timestamp":1769804951374,"sessionId":"debug-session","hypothesisId":"H3"}
+{"location":"battle-page.tsx:88","message":"fetchNewSimulation CALLED","data":{"stackTrace":["Error","    at https://wall-street-rpg.vercel.app/_next/static/chunks/e010ce7884203db4.js:14:7227","    at https://wall-street-rpg.vercel.app/_next/static/chunks/e010ce7884203db4.js:14:8504","    at sY (https://wall-street-rpg.vercel.app/_next/static/chunks/70bafb12448f1ea9.js:1:161928)","    at https://wall-street-rpg.vercel.app/_next/static/chunks/70bafb12448f1ea9.js:1:167816"]},"timestamp":1769804951375,"sessionId":"debug-session","hypothesisId":"H3"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804951375,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804951375,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:148","message":"Animation useEffect triggered","data":{"gameState":"LOADING","hasStageData":false},"timestamp":1769804951416,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-page.tsx:149","message":"Animation effect SKIPPED (not playing)","data":{"gameState":"LOADING","hasStageData":false},"timestamp":1769804951418,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804951598,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804952613,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804952613,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:148","message":"Animation useEffect triggered","data":{"gameState":"PLAYING","hasStageData":true,"symbol":"KO"},"timestamp":1769804952635,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-page.tsx:156","message":"Animation effect STARTING","data":{"gameState":"PLAYING","currentIndex":0,"dataLength":252},"timestamp":1769804952636,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804952790,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804952794,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804952794,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":0,"total":252,"time":"2024-01-02"},"timestamp":1769804953640,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804953648,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804953648,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804953820,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804953822,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804953822,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":1,"total":252,"time":"2024-01-03"},"timestamp":1769804954638,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804954645,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804954646,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804954821,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804954822,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804954822,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":2,"total":252,"time":"2024-01-04"},"timestamp":1769804955641,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804955646,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804955647,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804955827,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804955828,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804955829,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":3,"total":252,"time":"2024-01-05"},"timestamp":1769804956641,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804956647,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804956647,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804956846,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804956847,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804956848,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":4,"total":252,"time":"2024-01-08"},"timestamp":1769804957642,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804957648,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804957648,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804957819,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804957820,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804957820,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":5,"total":252,"time":"2024-01-09"},"timestamp":1769804958641,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804958648,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804958648,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804958820,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804958821,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804958821,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":6,"total":252,"time":"2024-01-10"},"timestamp":1769804959643,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804959648,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804959649,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804959825,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804959828,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804959828,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804960351,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804960352,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":7,"total":252,"time":"2024-01-11"},"timestamp":1769804960643,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804960649,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804960649,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804960823,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804960823,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804960824,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":8,"total":252,"time":"2024-01-12"},"timestamp":1769804961644,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804961652,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804961653,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804961848,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804961849,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804961850,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":9,"total":252,"time":"2024-01-15"},"timestamp":1769804962643,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804962650,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804962650,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804962850,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804962851,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804962851,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":10,"total":252,"time":"2024-01-16"},"timestamp":1769804963639,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804963647,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804963647,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804963833,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804963834,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804963835,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":11,"total":252,"time":"2024-01-17"},"timestamp":1769804964641,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804964650,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804964650,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804964834,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804964835,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804964835,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":12,"total":252,"time":"2024-01-18"},"timestamp":1769804965646,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804965653,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804965653,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804965837,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804965838,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804965838,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:139","message":"handleStartStop CLICKED","data":{"gameState":"PLAYING"},"timestamp":1769804966388,"sessionId":"debug-session","hypothesisId":"H3"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769804966389,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804966390,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:148","message":"Animation useEffect triggered","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804966410,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-page.tsx:149","message":"Animation effect SKIPPED (not playing)","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769804966410,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769804966571,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805432351,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805432350,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805711824,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805711825,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:148","message":"Animation useEffect triggered","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805711869,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-page.tsx:149","message":"Animation effect SKIPPED (not playing)","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805711869,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805712263,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805712273,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805712273,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805717387,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805717387,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:148","message":"Animation useEffect triggered","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805717417,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-page.tsx:149","message":"Animation effect SKIPPED (not playing)","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805717417,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805717779,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805717785,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805717785,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:139","message":"handleStartStop CLICKED","data":{"gameState":"IDLE"},"timestamp":1769805723291,"sessionId":"debug-session","hypothesisId":"H3"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805723292,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:88","message":"fetchNewSimulation CALLED","data":{"stackTrace":["Error","    at https://wall-street-rpg.vercel.app/_next/static/chunks/e010ce7884203db4.js:14:7227","    at https://wall-street-rpg.vercel.app/_next/static/chunks/e010ce7884203db4.js:14:8504","    at sY (https://wall-street-rpg.vercel.app/_next/static/chunks/70bafb12448f1ea9.js:1:161928)","    at https://wall-street-rpg.vercel.app/_next/static/chunks/70bafb12448f1ea9.js:1:167816"]},"timestamp":1769805723291,"sessionId":"debug-session","hypothesisId":"H3"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805723292,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:148","message":"Animation useEffect triggered","data":{"gameState":"LOADING","hasStageData":false},"timestamp":1769805723343,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-page.tsx:149","message":"Animation effect SKIPPED (not playing)","data":{"gameState":"LOADING","hasStageData":false},"timestamp":1769805723343,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805723508,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805723706,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805723707,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:148","message":"Animation useEffect triggered","data":{"gameState":"PLAYING","hasStageData":true,"symbol":"KO"},"timestamp":1769805723726,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-page.tsx:156","message":"Animation effect STARTING","data":{"gameState":"PLAYING","currentIndex":0,"dataLength":252},"timestamp":1769805723726,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805723892,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805723895,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805723896,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":0,"total":252,"time":"1972-01-03"},"timestamp":1769805724739,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805724746,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805724746,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805724931,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805724932,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805724932,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":1,"total":252,"time":"1972-01-04"},"timestamp":1769805725740,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805725745,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805725745,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805725915,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805725917,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805725917,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":2,"total":252,"time":"1972-01-05"},"timestamp":1769805726733,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805726739,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805726739,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805726909,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805726910,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805726910,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":3,"total":252,"time":"1972-01-06"},"timestamp":1769805727729,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805727734,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805727734,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805727921,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805727922,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805727922,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805728530,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805728531,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":4,"total":252,"time":"1972-01-07"},"timestamp":1769805728741,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805728746,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805728747,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805728933,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805728934,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805728934,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:209","message":"✅ React emitting NEW_CANDLE","data":{"index":5,"total":252,"time":"1972-01-10"},"timestamp":1769805729741,"sessionId":"debug-session","hypothesisId":"H5","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805729748,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805729748,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805729921,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805729922,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805729922,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:139","message":"handleStartStop CLICKED","data":{"gameState":"PLAYING"},"timestamp":1769805730544,"sessionId":"debug-session","hypothesisId":"H3"}
+{"location":"battle-page.tsx:52","message":"BattlePage component mounting","data":{},"timestamp":1769805730545,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:59","message":"Initial state set","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805730545,"sessionId":"debug-session","hypothesisId":"H2"}
+{"location":"battle-page.tsx:148","message":"Animation useEffect triggered","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805730563,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-page.tsx:149","message":"Animation effect SKIPPED (not playing)","data":{"gameState":"IDLE","hasStageData":false},"timestamp":1769805730563,"sessionId":"debug-session","hypothesisId":"H4"}
+{"location":"battle-scene.ts:115","message":"Phaser create() complete - NO auto-start","data":{"hasHistoricalQueue":0,"isPlayingHistorical":false},"timestamp":1769805730724,"sessionId":"debug-session","hypothesisId":"H1","runId":"post-fix"}
