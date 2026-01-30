@@ -77,11 +77,20 @@ export function BattlePage() {
 
   // PHASE 1: Fetch historical data ONCE on stage mount
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:80',message:'useEffect fetch triggered',data:{hasStageData:!!stageData},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
     const initializeStage = async () => {
       try {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:85',message:'Starting API fetch',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        // #endregion
         console.log('🎯 Initializing stage: Fetching ONE random ticker/year...')
         const response = await fetch('/api/market?type=historical')
         const result = await response.json()
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:92',message:'API fetch completed',data:{symbol:result.symbol,year:result.year,dataLength:result.data?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        // #endregion
 
         if (result.success && result.data && result.data.length > 0) {
           console.log(`✅ Stage initialized: ${result.symbol} - ${result.stockName} (${result.year})`)
@@ -136,6 +145,10 @@ export function BattlePage() {
 
         // Get next day's data
         const nextCandle = prev.fullYearData[prev.currentIndex]
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:145',message:'Emitting NEW_CANDLE',data:{index:prev.currentIndex,symbol:prev.symbol,date:nextCandle.time},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
         
         // Send to Phaser via event bus
         eventBus.emit(EVENTS.NEW_CANDLE, {

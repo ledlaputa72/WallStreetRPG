@@ -22,4 +22,4 @@ export const PhaserGame = dynamic(
 )
 
 export * from './event-bus'
-export { default as BattleScene } from './scenes/battle-scene'
+// BattleScene은 phaser-game.tsx 내부에서만 사용되므로 직접 export 제거 (SSR 이슈 방지)

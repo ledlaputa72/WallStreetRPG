@@ -59,10 +59,16 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
 
     // Fetch market data from API
     const fetchMarketData = useCallback(async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'phaser-game.tsx:62',message:'PhaserGame fetchMarketData called',data:{mode,symbol},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
       try {
         const apiType = mode === 'historical' ? 'historical' : 'intraday'
         const response = await fetch(`/api/market?symbol=${symbol}&type=${apiType}`)
         const result: MarketApiResponse = await response.json()
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'phaser-game.tsx:70',message:'PhaserGame API result',data:{symbol:result.symbol,year:result.year,isHistorical:result.isHistorical},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
 
         if (result.success && result.data && result.data.length > 0) {
           // Convert API data to CandleData format
@@ -85,6 +91,9 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
             resistancePrice,
           }
 
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'phaser-game.tsx:93',message:'Emitting UPDATE_MARKET_DATA from PhaserGame',data:{symbol:effectiveSymbol,candleCount:candles.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+          // #endregion
           // Send data to Phaser scene via event bus
           eventBus.emit(EVENTS.UPDATE_MARKET_DATA, updateData)
 
@@ -160,6 +169,9 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
 
       // When scene is ready, store reference and optionally fetch data
       const handleSceneReady = () => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'phaser-game.tsx:165',message:'SCENE_READY event fired',data:{autoFetch},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+        // #endregion
         const scene = gameRef.current?.scene.getScene('BattleScene') as BattleScene
         if (scene) {
           sceneRef.current = scene
@@ -169,6 +181,9 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
           
           // Initial fetch if autoFetch is enabled
           if (autoFetch) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'phaser-game.tsx:178',message:'autoFetch is TRUE, calling fetchMarketData',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+            // #endregion
             fetchMarketData()
           }
         }
