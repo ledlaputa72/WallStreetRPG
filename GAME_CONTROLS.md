@@ -44,13 +44,13 @@ Located at the **front** of the chart controls (before "차트타입" button):
   5. Animates the data sequentially, day by day
 
 ### Animation Speed
-- Base interval: 200ms per candle
+- Base interval: 1000ms (1 second) per candle
 - Speed multiplier: Divides the interval
-  - x1: 200ms per candle (~50 seconds for full year)
-  - x2: 100ms per candle (~25 seconds)
-  - x3: 67ms per candle (~17 seconds)
-  - x4: 50ms per candle (~12 seconds)
-  - x5: 40ms per candle (~10 seconds)
+  - x1: 1000ms per candle (~4.2 minutes for full year)
+  - x2: 500ms per candle (~2.1 minutes)
+  - x3: 333ms per candle (~1.4 minutes)
+  - x4: 250ms per candle (~1 minute)
+  - x5: 200ms per candle (~50 seconds)
 
 ### Data Persistence
 - The ticker and year **STAY FIXED** throughout the entire simulation
