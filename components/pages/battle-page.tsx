@@ -11,7 +11,7 @@ import { QuickSkills } from '@/components/battle/ui/QuickSkills'
 import { CharacterStats } from '@/components/battle/ui/CharacterStats'
 import { mockHero, mockPartners, mockInventory, mockSkills } from '@/components/battle/constants'
 import { eventBus, EVENTS } from '@/components/battle/event-bus'
-import type { GameState } from '@/components/battle/types'
+import type { GameState, SpeedMultiplier } from '@/components/battle/types'
 
 // Market candle data structure
 interface MarketCandle {
@@ -70,6 +70,14 @@ export function BattlePage() {
     handleCandleCountChange,
     handleSpeedChange,
   } = usePhaserGame()
+
+  // Speed ref to avoid including speedMultiplier in animation dependencies
+  const speedMultiplierRef = useRef<SpeedMultiplier>(speedMultiplier)
+  
+  // Keep ref in sync with speedMultiplier
+  useEffect(() => {
+    speedMultiplierRef.current = speedMultiplier
+  }, [speedMultiplier])
 
   // Display symbol - from stage data
   const displaySymbol = stageData?.symbol || (gameState === 'IDLE' ? 'Press Start' : 'LOADING...')
@@ -136,16 +144,18 @@ export function BattlePage() {
     }
   }, [gameState, fetchNewSimulation, stopSimulation])
 
-  // Sequential animation loop
+  // Sequential animation loop - START ONLY (no dependencies on changing state)
   useEffect(() => {
-    if (gameState !== 'PLAYING' || !stageData) return
-
-    // Clear any existing interval
-    if (animationIntervalRef.current) {
-      clearInterval(animationIntervalRef.current)
+    if (gameState !== 'PLAYING' || !stageData) {
+      // Stop animation if not playing
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current)
+        animationIntervalRef.current = null
+      }
+      return
     }
 
-    // Check if animation is complete
+    // Check if animation is complete at start
     if (stageData.currentIndex >= stageData.fullYearData.length) {
       console.log('🎬 Year animation complete! All trading days displayed.')
       setGameState('IDLE')
@@ -153,12 +163,8 @@ export function BattlePage() {
       return
     }
 
-    // Calculate interval based on speed multiplier (200ms base / speed)
-    const baseInterval = 200
-    const interval = baseInterval / speedMultiplier
-
-    // Start sequential animation
-    animationIntervalRef.current = setInterval(() => {
+    // Animation tick function
+    const tick = () => {
       setStageData(prev => {
         if (!prev) return null
         
@@ -166,7 +172,13 @@ export function BattlePage() {
         if (prev.currentIndex >= prev.fullYearData.length) {
           if (animationIntervalRef.current) {
             clearInterval(animationIntervalRef.current)
+            animationIntervalRef.current = null
           }
+          // Trigger completion after state update completes
+          setTimeout(() => {
+            setGameState('IDLE')
+            setStageData(null)
+          }, 0)
           return prev
         }
 
@@ -192,7 +204,15 @@ export function BattlePage() {
           currentIndex: prev.currentIndex + 1
         }
       })
-    }, interval)
+    }
+
+    // Start animation with initial speed (1 second per day at x1)
+    const startAnimation = () => {
+      const interval = 1000 / speedMultiplierRef.current
+      animationIntervalRef.current = setInterval(tick, interval)
+    }
+
+    startAnimation()
 
     // Cleanup
     return () => {
@@ -201,7 +221,55 @@ export function BattlePage() {
         animationIntervalRef.current = null
       }
     }
-  }, [gameState, stageData?.currentIndex, speedMultiplier])
+  }, [gameState, stageData?.symbol]) // Only depend on gameState and initial data load (symbol as proxy)
+
+  // Separate effect to handle speed changes WITHOUT restarting animation or losing data
+  useEffect(() => {
+    if (gameState !== 'PLAYING' || !animationIntervalRef.current) {
+      return
+    }
+
+    // Clear old interval and create new one with updated speed
+    clearInterval(animationIntervalRef.current)
+    
+    const tick = () => {
+      setStageData(prev => {
+        if (!prev) return null
+        
+        if (prev.currentIndex >= prev.fullYearData.length) {
+          if (animationIntervalRef.current) {
+            clearInterval(animationIntervalRef.current)
+            animationIntervalRef.current = null
+          }
+          setTimeout(() => {
+            setGameState('IDLE')
+            setStageData(null)
+          }, 0)
+          return prev
+        }
+
+        const nextCandle = prev.fullYearData[prev.currentIndex]
+        
+        eventBus.emit(EVENTS.NEW_CANDLE, {
+          id: `${prev.symbol}-${prev.currentIndex}-${nextCandle.time}`,
+          time: nextCandle.time,
+          open: nextCandle.open,
+          high: nextCandle.high,
+          low: nextCandle.low,
+          close: nextCandle.close,
+          volume: nextCandle.volume
+        })
+
+        return {
+          ...prev,
+          currentIndex: prev.currentIndex + 1
+        }
+      })
+    }
+
+    const interval = 1000 / speedMultiplierRef.current  // 1 second per day at x1
+    animationIntervalRef.current = setInterval(tick, interval)
+  }, [speedMultiplier]) // Only re-run when speed changes
 
   // Calculate target and resistance based on current price
   // Target: +5% from current price, Resistance: +10% from current price
