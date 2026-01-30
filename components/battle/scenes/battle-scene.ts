@@ -31,7 +31,26 @@ export default class BattleScene extends Phaser.Scene {
   private chartWidth: number = 0
   private chartPadding = { top: 36, right: 72, bottom: 88, left: 12 }
   private volumeHeight: number = 56
-  private labelFontSize: number = 14 // Readable font size for chart labels (responsive in create())
+  private labelFontSize: number = 14
+  // Grid: 20x→24, 30x→34, 40x→44 columns (candle slots + 2 empty + 2 price area)
+  private totalGridColumns(): number {
+    return this.visibleCandleCount + 4
+  }
+  private gridWidth(): number {
+    return this.chartWidth / this.totalGridColumns()
+  }
+  // Candle area: first visibleCandleCount columns only (new candle always at rightmost slot)
+  private candleAreaEndX(): number {
+    return this.chartPadding.left + this.visibleCandleCount * this.gridWidth()
+  }
+  // Price Y: high at 20% from top, low at 80% (middle 60% = price range)
+  private priceToY(price: number, minPrice: number, maxPrice: number, priceRange: number): number {
+    return this.chartPadding.top + 0.2 * this.chartHeight + ((maxPrice - price) / priceRange) * 0.6 * this.chartHeight
+  }
+  // Slot index for candle at visibleCandles[index]: right-aligned so newest is always at slot (visibleCandleCount - 1)
+  private candleSlotIndex(visibleLength: number, index: number): number {
+    return this.visibleCandleCount - visibleLength + index
+  }
   private animationTimer: Phaser.Time.TimerEvent | null = null
   private currentPrice: number = 125000
   private particles: Phaser.GameObjects.Particles.ParticleEmitter | null = null
@@ -358,15 +377,11 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private animateChartShift() {
-    // Skip animation if scene is not ready
     if (!this.tweens || !this.add || !this.sys?.isActive()) return
 
-    // Calculate scroll distance (one candle width)
-    const effectiveCount = Math.floor(this.visibleCandleCount / this.zoomLevel)
-    const candleWidth = this.chartWidth / effectiveCount
-
-    // Set initial scroll offset (new candle enters from right)
-    this.scrollOffsetX = candleWidth
+    // One grid cell = one candle slot (new candle always at rightmost slot)
+    const oneSlot = this.gridWidth()
+    this.scrollOffsetX = oneSlot
 
     // Render chart immediately with offset
     this.renderChart()
@@ -520,37 +535,35 @@ export default class BattleScene extends Phaser.Scene {
         this.markerCircle = null
       }
 
-      // Calculate visible range - sliding window showing last N candles
-      const effectiveCount = Math.floor(this.visibleCandleCount / this.zoomLevel)
-      const panCandles = Math.floor(this.panOffset / (15 * this.zoomLevel))
-      const startIndex = Math.max(0, this.candles.length - effectiveCount - panCandles)
-      const endIndex = Math.min(this.candles.length, startIndex + effectiveCount)
-      
-      const visibleCandles = this.candles.slice(startIndex, endIndex)
+      // Visible = last N candles (right-aligned; new candle always at slot visibleCandleCount)
+      const visibleCandles = this.candles.slice(-this.visibleCandleCount)
 
-      if (visibleCandles.length === 0) return
+      let minPrice: number
+      let maxPrice: number
+      let priceRange: number
 
-      // Calculate price range with autoscale
+      if (visibleCandles.length === 0) {
+        minPrice = this.currentPrice * 0.9
+        maxPrice = this.currentPrice * 1.1
+        priceRange = maxPrice - minPrice || 1
+        this.drawGrid(minPrice, maxPrice, priceRange)
+        return
+      }
+
       const prices = visibleCandles.flatMap(c => [c.high, c.low])
       if (this.targetPrice) prices.push(this.targetPrice)
       if (this.resistancePrice) prices.push(this.resistancePrice)
-      
-      let minPrice = Math.min(...prices)
-      let maxPrice = Math.max(...prices)
-      
-      // Add padding to price range
-      const pricePadding = (maxPrice - minPrice) * 0.1
-      minPrice -= pricePadding
-      maxPrice += pricePadding
-      const priceRange = maxPrice - minPrice || 1
+      minPrice = Math.min(...prices)
+      maxPrice = Math.max(...prices)
+      const pad = (maxPrice - minPrice) * 0.05 || 0.01
+      minPrice -= pad
+      maxPrice += pad
+      priceRange = maxPrice - minPrice || 1
 
-      // Calculate volume range
       const maxVolume = Math.max(...visibleCandles.map(c => c.volume))
 
-      // Draw grid
       this.drawGrid(minPrice, maxPrice, priceRange)
 
-      // Draw chart based on type
       switch (this.chartType) {
         case 'candle':
           this.renderCandlestickChart(visibleCandles, minPrice, maxPrice, priceRange, maxVolume)
@@ -563,15 +576,13 @@ export default class BattleScene extends Phaser.Scene {
           break
       }
 
-      // Draw current price line
-      this.drawCurrentPriceLine(visibleCandles, minPrice, priceRange)
+      this.drawCurrentPriceLine(visibleCandles, minPrice, maxPrice, priceRange)
 
-      // Draw target/resistance lines if set
       if (this.targetPrice) {
-        this.drawHorizontalLine(this.targetPrice, minPrice, priceRange, 0x22c55e, 'Target')
+        this.drawHorizontalLine(this.targetPrice, minPrice, maxPrice, priceRange, 0x22c55e, 'Target')
       }
       if (this.resistancePrice) {
-        this.drawHorizontalLine(this.resistancePrice, minPrice, priceRange, 0xef4444, 'Resistance')
+        this.drawHorizontalLine(this.resistancePrice, minPrice, maxPrice, priceRange, 0xef4444, 'Resistance')
       }
     } catch (error) {
       console.error('Error rendering chart:', error)
@@ -582,33 +593,33 @@ export default class BattleScene extends Phaser.Scene {
     if (!this.gridGraphics || !this.add) return
 
     const graphics = this.gridGraphics
-    graphics.lineStyle(1, this.GRID_COLOR, 0.3)
-
+    const gw = this.gridWidth()
+    const totalCols = this.totalGridColumns()
     const startX = this.chartPadding.left
     const endX = this.chartPadding.left + this.chartWidth
     const startY = this.chartPadding.top
     const endY = this.chartPadding.top + this.chartHeight
 
-    // Horizontal grid lines (price levels)
-    const priceSteps = 5
+    graphics.lineStyle(1, this.GRID_COLOR, 0.3)
+
+    // Horizontal grid lines (~10 divisions): use priceToY so high=20% from top, low=80%
+    const priceSteps = 10
     for (let i = 0; i <= priceSteps; i++) {
-      const y = startY + (this.chartHeight / priceSteps) * i
+      const price = maxPrice - (priceRange / priceSteps) * i
+      const y = this.priceToY(price, minPrice, maxPrice, priceRange)
       graphics.beginPath()
       graphics.moveTo(startX, y)
       graphics.lineTo(endX, y)
       graphics.strokePath()
 
-      // Price label on right side
+      // Price label in price area (right 2 grid columns)
       try {
-        const price = maxPrice - (priceRange / priceSteps) * i
+        const labelX = startX + (this.visibleCandleCount + 2) * gw + 4
         const label = this.add.text(
-          endX + 5,
+          labelX,
           y,
           `$${price.toFixed(2)}`,
-          {
-            fontSize: `${this.labelFontSize}px`,
-            color: '#94a3b8',
-          }
+          { fontSize: `${this.labelFontSize}px`, color: '#94a3b8' }
         )
         label.setOrigin(0, 0.5)
         this.priceLabels.push(label)
@@ -617,10 +628,9 @@ export default class BattleScene extends Phaser.Scene {
       }
     }
 
-    // Vertical grid lines (time)
-    const timeSteps = 5
-    for (let i = 0; i <= timeSteps; i++) {
-      const x = startX + (this.chartWidth / timeSteps) * i
+    // Vertical grid lines: one per grid column (24/34/44)
+    for (let i = 0; i <= totalCols; i++) {
+      const x = startX + i * gw
       graphics.beginPath()
       graphics.moveTo(x, startY)
       graphics.lineTo(x, endY + this.volumeHeight)
@@ -628,7 +638,7 @@ export default class BattleScene extends Phaser.Scene {
     }
   }
 
-  private drawCurrentPriceLine(candles: CandleData[], minPrice: number, priceRange: number) {
+  private drawCurrentPriceLine(candles: CandleData[], minPrice: number, maxPrice: number, priceRange: number) {
     if (!this.priceLineGraphics || !this.add || candles.length === 0) return
 
     const lastCandle = candles[candles.length - 1]
@@ -653,11 +663,12 @@ export default class BattleScene extends Phaser.Scene {
       x += dashLength + gapLength
     }
 
-    // Current price label
+    // Current price label (in price area)
     try {
       const isUp = lastCandle.close >= lastCandle.open
+      const labelX = this.chartPadding.left + (this.visibleCandleCount + 2) * this.gridWidth() + 4
       this.currentPriceLabel = this.add.text(
-        endX + 5,
+        labelX,
         y,
         `$${currentPrice.toFixed(2)}`,
         {
@@ -674,16 +685,16 @@ export default class BattleScene extends Phaser.Scene {
     }
   }
 
-  private drawHorizontalLine(price: number, minPrice: number, priceRange: number, color: number, label: string) {
+  private drawHorizontalLine(price: number, minPrice: number, maxPrice: number, priceRange: number, color: number, label: string) {
     if (!this.priceLineGraphics || !this.add) return
 
-    const y = this.chartPadding.top + ((priceRange - (price - minPrice)) / priceRange) * this.chartHeight
+    const y = this.priceToY(price, minPrice, maxPrice, priceRange)
 
     const graphics = this.priceLineGraphics
     graphics.lineStyle(1, color, 0.5)
 
     const startX = this.chartPadding.left
-    const endX = this.chartPadding.left + this.chartWidth
+    const endX = this.candleAreaEndX()
     const dashLength = 5
     const gapLength = 3
 
@@ -725,69 +736,52 @@ export default class BattleScene extends Phaser.Scene {
 
     const graphics = this.candleGraphics
     const volumeGfx = this.volumeGraphics
-
-    // Calculate candle dimensions
-    const availableWidth = this.chartWidth
-    const candleWidth = Math.max(2, (availableWidth / candles.length) * 0.7 * this.zoomLevel)
-    const candleGap = Math.max(1, (availableWidth / candles.length) * 0.3 * this.zoomLevel)
+    const gw = this.gridWidth()
+    const candleWidth = Math.max(2, gw * 0.75) // one candle per grid cell, fixed width
     const startX = this.chartPadding.left
 
     candles.forEach((candle, index) => {
-      const x = startX + index * (candleWidth + candleGap) - this.scrollOffsetX
+      const slotIndex = this.candleSlotIndex(candles.length, index)
+      const x = startX + slotIndex * gw + (gw - candleWidth) / 2 - this.scrollOffsetX
       const isUp = candle.close >= candle.open
       const color = isUp ? this.BULL_COLOR : this.BEAR_COLOR
 
-      // Y coordinates
-      const highY = this.chartPadding.top + ((maxPrice - candle.high) / priceRange) * this.chartHeight
-      const lowY = this.chartPadding.top + ((maxPrice - candle.low) / priceRange) * this.chartHeight
-      const openY = this.chartPadding.top + ((maxPrice - candle.open) / priceRange) * this.chartHeight
-      const closeY = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
+      const highY = this.priceToY(candle.high, minPrice, maxPrice, priceRange)
+      const lowY = this.priceToY(candle.low, minPrice, maxPrice, priceRange)
+      const openY = this.priceToY(candle.open, minPrice, maxPrice, priceRange)
+      const closeY = this.priceToY(candle.close, minPrice, maxPrice, priceRange)
 
       const bodyTop = Math.min(openY, closeY)
       const bodyHeight = Math.max(1, Math.abs(closeY - openY))
 
-      // Draw wick (thin line from high to low)
       graphics.lineStyle(1, color, 1)
       graphics.beginPath()
       graphics.moveTo(x + candleWidth / 2, highY)
       graphics.lineTo(x + candleWidth / 2, lowY)
       graphics.strokePath()
 
-      // Draw body (filled rectangle)
       if (isUp) {
-        // Hollow candle for up
         graphics.lineStyle(1, color, 1)
         graphics.strokeRect(x, bodyTop, candleWidth, bodyHeight)
-        graphics.fillStyle(0x0f172a, 1) // Dark fill for hollow
+        graphics.fillStyle(0x0f172a, 1)
         graphics.fillRect(x + 1, bodyTop + 1, candleWidth - 2, bodyHeight - 2)
       } else {
-        // Filled candle for down
         graphics.fillStyle(color, 1)
         graphics.fillRect(x, bodyTop, candleWidth, bodyHeight)
       }
 
-      // Draw volume bar
       const volumeBarHeight = (candle.volume / maxVolume) * this.volumeHeight
       const volumeY = this.chartPadding.top + this.chartHeight + 10
-
       volumeGfx.fillStyle(color, 0.3)
-      volumeGfx.fillRect(
-        x,
-        volumeY + (this.volumeHeight - volumeBarHeight),
-        candleWidth,
-        volumeBarHeight
-      )
+      volumeGfx.fillRect(x, volumeY + (this.volumeHeight - volumeBarHeight), candleWidth, volumeBarHeight)
     })
 
-    // Store marker position for effects
     if (candles.length > 0) {
       const lastCandle = candles[candles.length - 1]
-      const lastIndex = candles.length - 1
-      const x = startX + lastIndex * (candleWidth + candleGap) + candleWidth / 2
-      const closeY = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
-
-      this.currentMarkerX = x
-      this.currentMarkerY = closeY
+      const lastSlot = this.candleSlotIndex(candles.length, candles.length - 1)
+      const lastX = startX + lastSlot * gw + gw / 2 - this.scrollOffsetX
+      this.currentMarkerX = lastX
+      this.currentMarkerY = this.priceToY(lastCandle.close, minPrice, maxPrice, priceRange)
     }
   }
 
@@ -801,62 +795,48 @@ export default class BattleScene extends Phaser.Scene {
     if (candles.length === 0 || !this.candleGraphics || !this.volumeGraphics) return
 
     const graphics = this.candleGraphics
-
-    const availableWidth = this.chartWidth
-    const pointSpacing = candles.length > 1 ? availableWidth / (candles.length - 1) : availableWidth
+    const gw = this.gridWidth()
     const startX = this.chartPadding.left
+    const chartBottom = this.chartPadding.top + this.chartHeight
 
     const isUp = candles[candles.length - 1].close >= candles[0].open
     const lineColor = isUp ? this.BULL_COLOR : this.BEAR_COLOR
 
-    // Draw line
     graphics.lineStyle(2, lineColor, 1)
     graphics.beginPath()
-
     candles.forEach((candle, index) => {
-      const x = startX + index * pointSpacing - this.scrollOffsetX
-      const y = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
-
-      if (index === 0) {
-        graphics.moveTo(x, y)
-      } else {
-        graphics.lineTo(x, y)
-      }
+      const slotIndex = this.candleSlotIndex(candles.length, index)
+      const x = startX + (slotIndex + 0.5) * gw - this.scrollOffsetX
+      const y = this.priceToY(candle.close, minPrice, maxPrice, priceRange)
+      if (index === 0) graphics.moveTo(x, y)
+      else graphics.lineTo(x, y)
     })
     graphics.strokePath()
 
-    // Draw filled area
     graphics.fillStyle(lineColor, 0.15)
     graphics.beginPath()
-
-    const chartBottom = this.chartPadding.top + this.chartHeight
-
     candles.forEach((candle, index) => {
-      const x = startX + index * pointSpacing - this.scrollOffsetX
-      const y = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
-
+      const slotIndex = this.candleSlotIndex(candles.length, index)
+      const x = startX + (slotIndex + 0.5) * gw - this.scrollOffsetX
+      const y = this.priceToY(candle.close, minPrice, maxPrice, priceRange)
       if (index === 0) {
         graphics.moveTo(x, chartBottom)
         graphics.lineTo(x, y)
-      } else {
-        graphics.lineTo(x, y)
-      }
+      } else graphics.lineTo(x, y)
     })
-
-    graphics.lineTo(startX + (candles.length - 1) * pointSpacing, chartBottom)
+    const lastSlot = this.candleSlotIndex(candles.length, candles.length - 1)
+    graphics.lineTo(startX + (lastSlot + 0.5) * gw - this.scrollOffsetX, chartBottom)
     graphics.closePath()
     graphics.fillPath()
 
-    // Marker at last point
     if (candles.length > 0 && this.add) {
       try {
         const lastCandle = candles[candles.length - 1]
-        const x = startX + (candles.length - 1) * pointSpacing - this.scrollOffsetX
-        const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
-
+        const lastSlot = this.candleSlotIndex(candles.length, candles.length - 1)
+        const x = startX + (lastSlot + 0.5) * gw - this.scrollOffsetX
+        const y = this.priceToY(lastCandle.close, minPrice, maxPrice, priceRange)
         this.currentMarkerX = x
         this.currentMarkerY = y
-
         this.markerCircle = this.add.graphics()
         this.markerCircle.fillStyle(lineColor, 1)
         this.markerCircle.fillCircle(x, y, 5)
@@ -865,8 +845,7 @@ export default class BattleScene extends Phaser.Scene {
       }
     }
 
-    // Volume bars
-    this.renderVolumeBars(candles, maxVolume, startX, pointSpacing)
+    this.renderVolumeBars(candles, maxVolume, gw)
   }
 
   private renderLineChart(
@@ -879,9 +858,7 @@ export default class BattleScene extends Phaser.Scene {
     if (candles.length === 0 || !this.candleGraphics) return
 
     const graphics = this.candleGraphics
-
-    const availableWidth = this.chartWidth
-    const pointSpacing = candles.length > 1 ? availableWidth / (candles.length - 1) : availableWidth
+    const gw = this.gridWidth()
     const startX = this.chartPadding.left
 
     const isUp = candles[candles.length - 1].close >= candles[0].open
@@ -889,29 +866,23 @@ export default class BattleScene extends Phaser.Scene {
 
     graphics.lineStyle(2, lineColor, 1)
     graphics.beginPath()
-
     candles.forEach((candle, index) => {
-      const x = startX + index * pointSpacing - this.scrollOffsetX
-      const y = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
-
-      if (index === 0) {
-        graphics.moveTo(x, y)
-      } else {
-        graphics.lineTo(x, y)
-      }
+      const slotIndex = this.candleSlotIndex(candles.length, index)
+      const x = startX + (slotIndex + 0.5) * gw - this.scrollOffsetX
+      const y = this.priceToY(candle.close, minPrice, maxPrice, priceRange)
+      if (index === 0) graphics.moveTo(x, y)
+      else graphics.lineTo(x, y)
     })
     graphics.strokePath()
 
-    // Marker at last point
     if (candles.length > 0 && this.add) {
       try {
         const lastCandle = candles[candles.length - 1]
-        const x = startX + (candles.length - 1) * pointSpacing - this.scrollOffsetX
-        const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
-
+        const lastSlot = this.candleSlotIndex(candles.length, candles.length - 1)
+        const x = startX + (lastSlot + 0.5) * gw - this.scrollOffsetX
+        const y = this.priceToY(lastCandle.close, minPrice, maxPrice, priceRange)
         this.currentMarkerX = x
         this.currentMarkerY = y
-
         this.markerCircle = this.add.graphics()
         this.markerCircle.fillStyle(lineColor, 1)
         this.markerCircle.fillCircle(x, y, 5)
@@ -920,36 +891,31 @@ export default class BattleScene extends Phaser.Scene {
       }
     }
 
-    // Volume bars
-    this.renderVolumeBars(candles, maxVolume, startX, pointSpacing)
+    this.renderVolumeBars(candles, maxVolume, gw)
   }
 
-  private renderVolumeBars(candles: CandleData[], maxVolume: number, startX: number, spacing: number) {
+  private renderVolumeBars(candles: CandleData[], maxVolume: number, gw: number) {
     if (!this.volumeGraphics || !this.add) return
 
     const volumeGfx = this.volumeGraphics
-    const barWidth = Math.max(2, spacing * 0.7)
+    const barWidth = Math.max(2, gw * 0.75)
+    const startX = this.chartPadding.left
+    const volumeY = this.chartPadding.top + this.chartHeight + 10
 
     candles.forEach((candle, index) => {
-      const x = startX + index * spacing - barWidth / 2 - this.scrollOffsetX
+      const slotIndex = this.candleSlotIndex(candles.length, index)
+      const x = startX + slotIndex * gw + (gw - barWidth) / 2 - this.scrollOffsetX
       const volumeHeight = (candle.volume / maxVolume) * this.volumeHeight
-      const volumeY = this.chartPadding.top + this.chartHeight + 10
 
       const isUp = index > 0 ? candle.close >= candles[index - 1].close : true
       volumeGfx.fillStyle(isUp ? this.BULL_COLOR : this.BEAR_COLOR, 0.3)
-      volumeGfx.fillRect(
-        x,
-        volumeY + (this.volumeHeight - volumeHeight),
-        barWidth,
-        volumeHeight
-      )
-      
-      // Add date labels below volume (show every 10th candle to avoid crowding)
+      volumeGfx.fillRect(x, volumeY + (this.volumeHeight - volumeHeight), barWidth, volumeHeight)
+
       if (this.add && candle.time && index % 10 === 0) {
         try {
           const date = new Date(candle.time)
           const monthDay = `${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`
-          const dateLabel = this.add.text(x, volumeY + this.volumeHeight + 5, monthDay, {
+          const dateLabel = this.add.text(x + barWidth / 2, volumeY + this.volumeHeight + 5, monthDay, {
             fontSize: `${Math.max(11, this.labelFontSize - 2)}px`,
             color: '#888888',
             fontFamily: 'monospace'
@@ -1015,7 +981,16 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   update() {
-    // Per-frame update logic if needed
+    // Responsive: recalc chart dimensions when canvas size changes
+    const { width, height } = this.cameras.main
+    const newChartWidth = width - this.chartPadding.left - this.chartPadding.right
+    const newChartHeight = height - this.chartPadding.top - this.chartPadding.bottom - this.volumeHeight
+    if (newChartWidth !== this.chartWidth || newChartHeight !== this.chartHeight) {
+      this.chartWidth = newChartWidth
+      this.chartHeight = newChartHeight
+      this.labelFontSize = Math.max(12, Math.min(18, Math.floor(width / 40)))
+      if (this.add && this.gridGraphics) this.renderChart()
+    }
   }
 
   shutdown() {

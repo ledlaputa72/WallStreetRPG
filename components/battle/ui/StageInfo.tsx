@@ -32,69 +32,47 @@ export function StageInfo({
   const isProfit = parseFloat(profitPercent) >= 0
 
   return (
-    <div className="flex items-center justify-between flex-wrap gap-2">
-      <div className="flex items-center gap-3">
-        <div>
-          <h2 className="text-lg md:text-xl font-bold text-foreground">
-            {symbol}
-            {stockName && <span className="text-sm md:text-base font-normal text-muted-foreground ml-2">({stockName})</span>}
-          </h2>
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            {year ? (
-              <>
-                <Calendar className="h-4 w-4" />
-                <span>
-                  {year}
-                  {currentDate && <span className="ml-1 font-semibold text-foreground">{currentDate}</span>}
-                </span>
-              </>
-            ) : (
-              'Real-time Market Data'
-            )}
-          </p>
-        </div>
+    <div className="flex items-center justify-between gap-1.5 sm:gap-2 flex-nowrap min-w-0 overflow-hidden">
+      <div className="flex items-center gap-1.5 min-w-0 shrink overflow-hidden">
+        <h2 className="text-sm sm:text-base font-bold text-foreground truncate">
+          {symbol}
+          {stockName && <span className="text-[10px] sm:text-xs font-normal text-muted-foreground">({stockName})</span>}
+        </h2>
+        <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-0.5 shrink-0">
+          <Calendar className="h-3 w-3 shrink-0" />
+          <span className="whitespace-nowrap">{year ?? ''}{currentDate ? ` ${currentDate}` : ''}</span>
+        </p>
       </div>
 
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0">
         {targetPrice && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-green-500/10 border border-green-500/20">
-            <Target className="h-4 w-4 text-green-500 shrink-0" />
-            <div className="text-right">
-              <div className="text-xs text-green-500/70 uppercase tracking-wide">Target</div>
-              <div className="text-sm font-bold text-green-500">
-                ${targetPrice.toFixed(2)}
-              </div>
+          <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20 shrink-0">
+            <Target className="h-3 w-3 text-green-500 shrink-0" />
+            <div className="text-right leading-tight">
+              <div className="text-[9px] text-green-500/70 uppercase">Target</div>
+              <div className="text-[10px] sm:text-xs font-bold text-green-500">${targetPrice.toFixed(2)}</div>
             </div>
           </div>
         )}
-
         {resistancePrice && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-red-500/10 border border-red-500/20">
-            <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-            <div className="text-right">
-              <div className="text-xs text-red-500/70 uppercase tracking-wide">Resistance</div>
-              <div className="text-sm font-bold text-red-500">
-                ${resistancePrice.toFixed(2)}
-              </div>
+          <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 shrink-0">
+            <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
+            <div className="text-right leading-tight">
+              <div className="text-[9px] text-red-500/70 uppercase">Resist.</div>
+              <div className="text-[10px] sm:text-xs font-bold text-red-500">${resistancePrice.toFixed(2)}</div>
             </div>
           </div>
         )}
-
-        <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-primary shrink-0" />
-          <span className="text-sm md:text-base font-medium">Stage {stage}</span>
-          <span className="text-sm text-muted-foreground">Wave {currentWave}/{maxWave}</span>
+        <div className="flex items-center gap-0.5 shrink-0 text-[10px] sm:text-xs">
+          <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="font-medium whitespace-nowrap">S{stage}</span>
+          <span className="text-muted-foreground whitespace-nowrap">W{currentWave}/{maxWave}</span>
         </div>
-
-        <div className="flex items-center gap-2">
-          <TrendingUp className={`h-5 w-5 shrink-0 ${isProfit ? 'text-green-500' : 'text-red-500'}`} />
-          <div className="text-right">
-            <div className="text-base font-bold text-foreground">
-              ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className={`text-sm font-medium ${isProfit ? 'text-green-500' : 'text-red-500'}`}>
-              {isProfit ? '+' : ''}{profitPercent}%
-            </div>
+        <div className="flex items-center gap-0.5 shrink-0 text-right">
+          <TrendingUp className={`h-3.5 w-3.5 shrink-0 ${isProfit ? 'text-green-500' : 'text-red-500'}`} />
+          <div>
+            <div className="text-xs sm:text-sm font-bold text-foreground leading-tight whitespace-nowrap">${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className={`text-[10px] sm:text-xs font-medium leading-tight ${isProfit ? 'text-green-500' : 'text-red-500'}`}>{isProfit ? '+' : ''}{profitPercent}%</div>
           </div>
         </div>
       </div>
