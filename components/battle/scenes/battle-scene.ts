@@ -54,6 +54,10 @@ export default class BattleScene extends Phaser.Scene {
   private targetPrice: number | null = null
   private resistancePrice: number | null = null
 
+  // Historical data playback
+  private historicalQueue: CandleData[] = []
+  private isPlayingHistorical: boolean = false
+
   // Colors
   private readonly BULL_COLOR = 0x22c55e // Green for up
   private readonly BEAR_COLOR = 0xef4444 // Red for down
@@ -196,7 +200,7 @@ export default class BattleScene extends Phaser.Scene {
       return
     }
 
-    const baseInterval = 2000
+    const baseInterval = 200 // Changed from 2000ms to 200ms (0.2 seconds)
 
     try {
       if (this.animationTimer) {
@@ -206,7 +210,7 @@ export default class BattleScene extends Phaser.Scene {
       this.animationTimer = this.time.addEvent({
         delay: baseInterval / this.speedMultiplier,
         callback: () => {
-          this.generateNewCandle()
+          this.playNextCandle()
         },
         loop: true,
       })
@@ -215,8 +219,44 @@ export default class BattleScene extends Phaser.Scene {
     }
   }
 
+  private playNextCandle() {
+    // If playing historical data, play from queue
+    if (this.isPlayingHistorical && this.historicalQueue.length > 0) {
+      const nextCandle = this.historicalQueue.shift()
+      if (nextCandle) {
+        this.addNewCandle(nextCandle)
+      }
+      
+      // If queue is empty, stop historical playback
+      if (this.historicalQueue.length === 0) {
+        this.isPlayingHistorical = false
+        console.log('Historical data playback completed')
+      }
+    } else {
+      // Generate synthetic candle
+      this.generateNewCandle()
+    }
+  }
+
   private generateNewCandle() {
-    if (this.candles.length === 0) return
+    // Don't generate synthetic candles if we have no base data
+    if (this.candles.length === 0) {
+      // If historical is queued, wait for it to start
+      if (this.historicalQueue.length > 0) return
+      
+      // Create initial candle for demo mode
+      const basePrice = this.currentPrice || 175
+      this.candles.push({
+        id: `initial-${Date.now()}`,
+        open: basePrice,
+        close: basePrice,
+        high: basePrice + 1,
+        low: basePrice - 1,
+        volume: 500000,
+        time: new Date().toISOString(),
+      })
+      return
+    }
 
     const lastCandle = this.candles[this.candles.length - 1]
     const volatility = (Math.random() - 0.5) * 2
@@ -244,20 +284,26 @@ export default class BattleScene extends Phaser.Scene {
   // Public method to update market data from API
   public updateMarketData(data: MarketDataUpdate) {
     if (data.candles && data.candles.length > 0) {
-      // Replace candles with API data
-      this.candles = data.candles.map((c, i) => ({
+      if (data.targetPrice) this.targetPrice = data.targetPrice
+      if (data.resistancePrice) this.resistancePrice = data.resistancePrice
+      
+      // Clear existing candles and start fresh
+      this.candles = []
+      
+      // Queue all candles for animated playback
+      this.historicalQueue = data.candles.map((c, i) => ({
         ...c,
         id: c.id || `api-candle-${i}`,
       }))
       
-      if (data.targetPrice) this.targetPrice = data.targetPrice
-      if (data.resistancePrice) this.resistancePrice = data.resistancePrice
+      this.isPlayingHistorical = true
       
-      const lastCandle = this.candles[this.candles.length - 1]
-      this.currentPrice = lastCandle.close
+      // Set initial price from first candle
+      if (this.historicalQueue.length > 0) {
+        this.currentPrice = this.historicalQueue[0].open
+      }
       
-      this.renderChart()
-      eventBus.emit(EVENTS.PRICE_CHANGED, lastCandle.close, lastCandle.close - lastCandle.open)
+      console.log(`Starting historical playback: ${this.historicalQueue.length} candles queued`)
     }
   }
 
@@ -274,10 +320,15 @@ export default class BattleScene extends Phaser.Scene {
       this.candles.shift()
     }
 
-    // Smooth scroll animation
+    // Update current price
+    this.currentPrice = candle.close
+
+    // Smooth scroll animation with effects
     this.animateChartShift()
 
+    // Emit events
     eventBus.emit(EVENTS.CANDLE_GENERATED, candle)
+    eventBus.emit(EVENTS.PRICE_CHANGED, candle.close, candle.close - candle.open)
   }
 
   private animateChartShift() {
