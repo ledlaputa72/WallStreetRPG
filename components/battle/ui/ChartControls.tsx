@@ -2,21 +2,25 @@
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { ChartType, CandleCount, SpeedMultiplier } from '../types'
+import type { ChartType, CandleCount, SpeedMultiplier, GameState } from '../types'
 
 interface ChartControlsProps {
+  gameState: GameState
   chartType: ChartType
   candleCount: CandleCount
   speedMultiplier: SpeedMultiplier
+  onStartStop: () => void
   onChartTypeChange: (type: ChartType) => void
   onCandleCountChange: (count: CandleCount) => void
   onSpeedChange: (speed: SpeedMultiplier) => void
 }
 
 export function ChartControls({
+  gameState,
   chartType,
   candleCount,
   speedMultiplier,
+  onStartStop,
   onChartTypeChange,
   onCandleCountChange,
   onSpeedChange,
@@ -56,8 +60,35 @@ export function ChartControls({
     return labels[type]
   }
 
+  // Get button label based on game state
+  const getStartStopLabel = () => {
+    if (gameState === 'LOADING') return 'Loading...'
+    if (gameState === 'PLAYING') return 'Stop'
+    return 'Start'
+  }
+
+  // Get button color based on game state
+  const getStartStopColor = () => {
+    if (gameState === 'LOADING') return 'bg-gray-500 hover:bg-gray-600'
+    if (gameState === 'PLAYING') return 'bg-red-500 hover:bg-red-600'
+    return 'bg-green-500 hover:bg-green-600'
+  }
+
   return (
     <div className="flex items-center justify-between gap-3">
+      {/* Start/Stop Button - 초록/빨강 */}
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={onStartStop}
+          disabled={gameState === 'LOADING'}
+          className={cn("h-7 px-3 text-xs text-white border-0", getStartStopColor())}
+        >
+          {getStartStopLabel()}
+        </Button>
+      </div>
+
       {/* Chart Type - 오렌지 */}
       <div className="flex items-center gap-1.5">
         <span className="text-xs text-orange-500 font-medium">차트타입</span>

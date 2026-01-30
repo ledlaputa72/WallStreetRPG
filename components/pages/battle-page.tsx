@@ -11,6 +11,7 @@ import { QuickSkills } from '@/components/battle/ui/QuickSkills'
 import { CharacterStats } from '@/components/battle/ui/CharacterStats'
 import { mockHero, mockPartners, mockInventory, mockSkills } from '@/components/battle/constants'
 import { eventBus, EVENTS } from '@/components/battle/event-bus'
+import type { GameState } from '@/components/battle/types'
 
 // Market candle data structure
 interface MarketCandle {
@@ -52,9 +53,9 @@ export function BattlePage() {
   const stage = '4-12'
   const wave = { current: 1, max: 5 }
   
-  // Stage-level data: stores ONE random ticker/year and full year data
+  // Game state management
+  const [gameState, setGameState] = useState<GameState>('IDLE')
   const [stageData, setStageData] = useState<StageData | null>(null)
-  const [isAnimating, setIsAnimating] = useState(false)
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   const {
@@ -71,66 +72,92 @@ export function BattlePage() {
   } = usePhaserGame()
 
   // Display symbol - from stage data
-  const displaySymbol = stageData?.symbol || 'LOADING...'
+  const displaySymbol = stageData?.symbol || (gameState === 'IDLE' ? 'Press Start' : 'LOADING...')
   const displayStockName = stageData?.stockName
   const displayYear = stageData?.year
 
-  // PHASE 1: Fetch historical data ONCE on stage mount
-  useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:80',message:'useEffect fetch triggered',data:{hasStageData:!!stageData},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
-    const initializeStage = async () => {
-      try {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:85',message:'Starting API fetch',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
-        console.log('🎯 Initializing stage: Fetching ONE random ticker/year...')
-        const response = await fetch('/api/market?type=historical')
-        const result = await response.json()
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:92',message:'API fetch completed',data:{symbol:result.symbol,year:result.year,dataLength:result.data?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
+  // Fetch new simulation data
+  const fetchNewSimulation = useCallback(async () => {
+    setGameState('LOADING')
+    
+    try {
+      console.log('🎯 Starting new simulation: Fetching ONE random ticker/year...')
+      const response = await fetch('/api/market?type=historical')
+      const result = await response.json()
 
-        if (result.success && result.data && result.data.length > 0) {
-          console.log(`✅ Stage initialized: ${result.symbol} - ${result.stockName} (${result.year})`)
-          console.log(`📊 Full year data loaded: ${result.data.length} trading days`)
-          
-          setStageData({
-            symbol: result.symbol,
-            stockName: result.stockName,
-            year: result.year,
-            fullYearData: result.data,
-            currentIndex: 0
-          })
-          setIsAnimating(true)
-        }
-      } catch (error) {
-        console.error('❌ Failed to initialize stage:', error)
+      if (result.success && result.data && result.data.length > 0) {
+        console.log(`✅ Simulation loaded: ${result.symbol} - ${result.stockName} (${result.year})`)
+        console.log(`📊 Full year data loaded: ${result.data.length} trading days`)
+        
+        // Clear existing chart data via event bus
+        eventBus.emit(EVENTS.CLEAR_CHART)
+        
+        setStageData({
+          symbol: result.symbol,
+          stockName: result.stockName,
+          year: result.year,
+          fullYearData: result.data,
+          currentIndex: 0
+        })
+        setGameState('PLAYING')
+      } else {
+        throw new Error('Failed to fetch simulation data')
       }
+    } catch (error) {
+      console.error('❌ Failed to start simulation:', error)
+      setGameState('IDLE')
     }
+  }, [])
 
-    initializeStage()
-  }, []) // Empty deps = run ONCE on mount
+  // Stop simulation and reset
+  const stopSimulation = useCallback(() => {
+    console.log('⏹️ Stopping simulation...')
+    
+    // Clear interval
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current)
+      animationIntervalRef.current = null
+    }
+    
+    // Clear chart data
+    eventBus.emit(EVENTS.CLEAR_CHART)
+    
+    // Reset state
+    setStageData(null)
+    setGameState('IDLE')
+  }, [])
 
-  // PHASE 2: Sequential day-by-day animation
+  // Handle Start/Stop button
+  const handleStartStop = useCallback(() => {
+    if (gameState === 'IDLE') {
+      fetchNewSimulation()
+    } else if (gameState === 'PLAYING') {
+      stopSimulation()
+    }
+  }, [gameState, fetchNewSimulation, stopSimulation])
+
+  // Sequential animation loop
   useEffect(() => {
-    if (!stageData || !isAnimating) return
+    if (gameState !== 'PLAYING' || !stageData) return
 
     // Clear any existing interval
     if (animationIntervalRef.current) {
       clearInterval(animationIntervalRef.current)
     }
 
-    // Animation complete check
+    // Check if animation is complete
     if (stageData.currentIndex >= stageData.fullYearData.length) {
       console.log('🎬 Year animation complete! All trading days displayed.')
-      setIsAnimating(false)
-      // TODO: Trigger next stage or reload
+      setGameState('IDLE')
+      setStageData(null)
       return
     }
 
-    // Start sequential animation: one candle every 200ms
+    // Calculate interval based on speed multiplier (200ms base / speed)
+    const baseInterval = 200
+    const interval = baseInterval / speedMultiplier
+
+    // Start sequential animation
     animationIntervalRef.current = setInterval(() => {
       setStageData(prev => {
         if (!prev) return null
@@ -145,10 +172,6 @@ export function BattlePage() {
 
         // Get next day's data
         const nextCandle = prev.fullYearData[prev.currentIndex]
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-page.tsx:145',message:'Emitting NEW_CANDLE',data:{index:prev.currentIndex,symbol:prev.symbol,date:nextCandle.time},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         
         // Send to Phaser via event bus
         eventBus.emit(EVENTS.NEW_CANDLE, {
@@ -169,7 +192,7 @@ export function BattlePage() {
           currentIndex: prev.currentIndex + 1
         }
       })
-    }, 200) // 0.2 seconds per day = ~50 seconds for full year
+    }, interval)
 
     // Cleanup
     return () => {
@@ -178,7 +201,7 @@ export function BattlePage() {
         animationIntervalRef.current = null
       }
     }
-  }, [stageData?.currentIndex, isAnimating])
+  }, [gameState, stageData?.currentIndex, speedMultiplier])
 
   // Calculate target and resistance based on current price
   // Target: +5% from current price, Resistance: +10% from current price
@@ -234,9 +257,11 @@ export function BattlePage() {
         {/* Chart Controls */}
         <div className="flex-shrink-0 p-3 border-t border-primary/10 bg-card/5">
           <ChartControls
+            gameState={gameState}
             chartType={chartType}
             candleCount={candleCount}
             speedMultiplier={speedMultiplier}
+            onStartStop={handleStartStop}
             onChartTypeChange={handleChartTypeChange}
             onCandleCountChange={handleCandleCountChange}
             onSpeedChange={handleSpeedChange}

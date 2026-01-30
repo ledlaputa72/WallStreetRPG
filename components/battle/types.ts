@@ -46,3 +46,4 @@ export interface Skill {
 export type ChartType = 'candle' | 'area' | 'line'
 export type CandleCount = 20 | 30 | 40
 export type SpeedMultiplier = 1 | 2 | 3 | 4 | 5
+export type GameState = 'IDLE' | 'LOADING' | 'PLAYING'

@@ -48,6 +48,7 @@ export const EVENTS = {
   ATTACK_ENEMY: 'attack-enemy',
   USE_SKILL: 'use-skill',
   UPDATE_MARKET_DATA: 'update-market-data',
+  CLEAR_CHART: 'clear-chart',
   
   // Phaser -> React
   CANDLE_GENERATED: 'candle-generated',

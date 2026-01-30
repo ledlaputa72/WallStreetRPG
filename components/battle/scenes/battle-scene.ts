@@ -110,6 +110,7 @@ export default class BattleScene extends Phaser.Scene {
     eventBus.on(EVENTS.CHANGE_CANDLE_COUNT, this.changeCandleCount.bind(this))
     eventBus.on(EVENTS.ATTACK_ENEMY, this.onAttackEnemy.bind(this))
     eventBus.on(EVENTS.UPDATE_MARKET_DATA, this.updateMarketData.bind(this))
+    eventBus.on(EVENTS.CLEAR_CHART, this.clearChart.bind(this))
 
     // Start auto candle generation
     this.startCandleGeneration()
@@ -320,6 +321,30 @@ export default class BattleScene extends Phaser.Scene {
   // Public method to update data (called from React)
   public updateData(candles: CandleData[]) {
     this.updateMarketData({ candles })
+  }
+
+  // Public method to clear chart (called when Stop is pressed)
+  public clearChart() {
+    console.log('🧹 Clearing chart data...')
+    
+    // Clear all candles
+    this.candles = []
+    this.historicalQueue = []
+    
+    // Stop historical playback
+    this.isPlayingHistorical = false
+    
+    // Stop animation timer
+    if (this.animationTimer) {
+      this.animationTimer.destroy()
+      this.animationTimer = null
+    }
+    
+    // Reset prices
+    this.currentPrice = 0
+    
+    // Clear the chart visually
+    this.renderChart()
   }
 
   private addNewCandle(candle: CandleData) {
@@ -940,6 +965,7 @@ export default class BattleScene extends Phaser.Scene {
     eventBus.off(EVENTS.CHANGE_CANDLE_COUNT, this.changeCandleCount.bind(this))
     eventBus.off(EVENTS.ATTACK_ENEMY, this.onAttackEnemy.bind(this))
     eventBus.off(EVENTS.UPDATE_MARKET_DATA, this.updateMarketData.bind(this))
+    eventBus.off(EVENTS.CLEAR_CHART, this.clearChart.bind(this))
 
     if (this.animationTimer) {
       this.animationTimer.destroy()
