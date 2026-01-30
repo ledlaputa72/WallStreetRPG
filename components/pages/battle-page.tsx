@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePhaserGame } from '@/components/battle/hooks/usePhaserGame'
@@ -10,6 +10,26 @@ import { QuickInventory } from '@/components/battle/ui/QuickInventory'
 import { QuickSkills } from '@/components/battle/ui/QuickSkills'
 import { CharacterStats } from '@/components/battle/ui/CharacterStats'
 import { mockHero, mockPartners, mockInventory, mockSkills } from '@/components/battle/constants'
+import { eventBus, EVENTS } from '@/components/battle/event-bus'
+
+// Market candle data structure
+interface MarketCandle {
+  time: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+// Stage data structure
+interface StageData {
+  symbol: string
+  stockName: string
+  year: number
+  fullYearData: MarketCandle[]
+  currentIndex: number
+}
 
 // Phaser 컴포넌트를 dynamic import (SSR 비활성화)
 const PhaserGame = dynamic(
@@ -32,12 +52,10 @@ export function BattlePage() {
   const stage = '4-12'
   const wave = { current: 1, max: 5 }
   
-  // Historical mode settings (for chart animation testing)
-  const [historicalInfo, setHistoricalInfo] = useState<{
-    symbol: string
-    stockName: string
-    year: number
-  } | null>(null)
+  // Stage-level data: stores ONE random ticker/year and full year data
+  const [stageData, setStageData] = useState<StageData | null>(null)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const animationIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   const {
     phaserRef,
@@ -52,15 +70,102 @@ export function BattlePage() {
     handleSpeedChange,
   } = usePhaserGame()
 
-  // Handle historical data loaded
-  const handleHistoricalDataLoaded = useCallback((data: { symbol: string; stockName: string; year: number }) => {
-    setHistoricalInfo(data)
-  }, [])
+  // Display symbol - from stage data
+  const displaySymbol = stageData?.symbol || 'LOADING...'
+  const displayStockName = stageData?.stockName
+  const displayYear = stageData?.year
 
-  // Display symbol - from historical data or default
-  const displaySymbol = historicalInfo?.symbol || 'LOADING...'
-  const displayStockName = historicalInfo?.stockName
-  const displayYear = historicalInfo?.year
+  // PHASE 1: Fetch historical data ONCE on stage mount
+  useEffect(() => {
+    const initializeStage = async () => {
+      try {
+        console.log('🎯 Initializing stage: Fetching ONE random ticker/year...')
+        const response = await fetch('/api/market?type=historical')
+        const result = await response.json()
+
+        if (result.success && result.data && result.data.length > 0) {
+          console.log(`✅ Stage initialized: ${result.symbol} - ${result.stockName} (${result.year})`)
+          console.log(`📊 Full year data loaded: ${result.data.length} trading days`)
+          
+          setStageData({
+            symbol: result.symbol,
+            stockName: result.stockName,
+            year: result.year,
+            fullYearData: result.data,
+            currentIndex: 0
+          })
+          setIsAnimating(true)
+        }
+      } catch (error) {
+        console.error('❌ Failed to initialize stage:', error)
+      }
+    }
+
+    initializeStage()
+  }, []) // Empty deps = run ONCE on mount
+
+  // PHASE 2: Sequential day-by-day animation
+  useEffect(() => {
+    if (!stageData || !isAnimating) return
+
+    // Clear any existing interval
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current)
+    }
+
+    // Animation complete check
+    if (stageData.currentIndex >= stageData.fullYearData.length) {
+      console.log('🎬 Year animation complete! All trading days displayed.')
+      setIsAnimating(false)
+      // TODO: Trigger next stage or reload
+      return
+    }
+
+    // Start sequential animation: one candle every 200ms
+    animationIntervalRef.current = setInterval(() => {
+      setStageData(prev => {
+        if (!prev) return null
+        
+        // Check if we've reached the end
+        if (prev.currentIndex >= prev.fullYearData.length) {
+          if (animationIntervalRef.current) {
+            clearInterval(animationIntervalRef.current)
+          }
+          return prev
+        }
+
+        // Get next day's data
+        const nextCandle = prev.fullYearData[prev.currentIndex]
+        
+        // Send to Phaser via event bus
+        eventBus.emit(EVENTS.NEW_CANDLE, {
+          id: `${prev.symbol}-${prev.currentIndex}-${nextCandle.time}`,
+          time: nextCandle.time,
+          open: nextCandle.open,
+          high: nextCandle.high,
+          low: nextCandle.low,
+          close: nextCandle.close,
+          volume: nextCandle.volume
+        })
+
+        console.log(`📈 Day ${prev.currentIndex + 1}/${prev.fullYearData.length}: ${nextCandle.time} - Close: $${nextCandle.close}`)
+
+        // Increment index
+        return {
+          ...prev,
+          currentIndex: prev.currentIndex + 1
+        }
+      })
+    }, 200) // 0.2 seconds per day = ~50 seconds for full year
+
+    // Cleanup
+    return () => {
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current)
+        animationIntervalRef.current = null
+      }
+    }
+  }, [stageData?.currentIndex, isAnimating])
 
   // Calculate target and resistance based on current price
   // Target: +5% from current price, Resistance: +10% from current price
@@ -108,10 +213,8 @@ export function BattlePage() {
             symbol={displaySymbol}
             targetPrice={targetPrice}
             resistancePrice={resistancePrice}
-            autoFetch={true}
-            fetchInterval={60000}
-            mode="historical"
-            onHistoricalDataLoaded={handleHistoricalDataLoaded}
+            autoFetch={false}
+            mode="realtime"
           />
         </div>
 
