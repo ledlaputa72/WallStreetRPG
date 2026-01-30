@@ -284,11 +284,6 @@ export default class BattleScene extends Phaser.Scene {
 
   // Public method to update market data from API
   public updateMarketData(data: MarketDataUpdate) {
-    // #region agent log
-    if (typeof fetch !== 'undefined') {
-      fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:288',message:'BattleScene updateMarketData called',data:{symbol:data.symbol,candleCount:data.candles?.length,hasCandles:!!data.candles},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-    }
-    // #endregion
     if (data.candles && data.candles.length > 0) {
       if (data.targetPrice) this.targetPrice = data.targetPrice
       if (data.resistancePrice) this.resistancePrice = data.resistancePrice
@@ -309,11 +304,6 @@ export default class BattleScene extends Phaser.Scene {
         this.currentPrice = this.historicalQueue[0].open
       }
       
-      // #region agent log
-      if (typeof fetch !== 'undefined') {
-        fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:315',message:'Historical queue populated',data:{queueLength:this.historicalQueue.length,symbol:data.symbol},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-      }
-      // #endregion
       console.log(`Starting historical playback: ${this.historicalQueue.length} candles queued`)
     }
   }
