@@ -112,8 +112,12 @@ export default class BattleScene extends Phaser.Scene {
     eventBus.on(EVENTS.UPDATE_MARKET_DATA, this.updateMarketData.bind(this))
     eventBus.on(EVENTS.CLEAR_CHART, this.clearChart.bind(this))
 
-    // Start auto candle generation
-    this.startCandleGeneration()
+    // #region agent log
+    console.error('✅ [FIX] Phaser create() - NOT auto-starting (waiting for React NEW_CANDLE events)')
+    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:115',message:'Phaser create() complete - NO auto-start',data:{hasHistoricalQueue:this.historicalQueue.length,isPlayingHistorical:this.isPlayingHistorical},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
+    // #endregion
+    // DO NOT auto-start - wait for React to send NEW_CANDLE events
+    // this.startCandleGeneration() // REMOVED - React controls start/stop
 
     // Scene ready
     eventBus.emit(EVENTS.SCENE_READY)
@@ -196,12 +200,16 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private startCandleGeneration() {
+    // #region agent log
+    console.error('✅ [FIX] startCandleGeneration with 1000ms base interval')
+    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:198',message:'startCandleGeneration CALLED',data:{hasTime:!!this.time,speedMultiplier:this.speedMultiplier,hasExistingTimer:!!this.animationTimer},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
+    // #endregion
     if (!this.time) {
       console.warn('Scene time system not initialized')
       return
     }
 
-    const baseInterval = 200 // Changed from 2000ms to 200ms (0.2 seconds)
+    const baseInterval = 1000 // 1 second per candle at x1 speed
 
     try {
       if (this.animationTimer) {
@@ -215,12 +223,19 @@ export default class BattleScene extends Phaser.Scene {
         },
         loop: true,
       })
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:218',message:'Animation timer CREATED',data:{interval:baseInterval/this.speedMultiplier,speedMultiplier:this.speedMultiplier},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
     } catch (error) {
       console.error('Error starting candle generation:', error)
     }
   }
 
   private playNextCandle() {
+    // #region agent log
+    console.error('🔥 [H1] playNextCandle CALLED', {isHistorical: this.isPlayingHistorical, queue: this.historicalQueue.length, candles: this.candles.length})
+    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:233',message:'playNextCandle CALLED',data:{isPlayingHistorical:this.isPlayingHistorical,queueLength:this.historicalQueue.length,candlesCount:this.candles.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
     // If playing historical data, play from queue
     if (this.isPlayingHistorical && this.historicalQueue.length > 0) {
       const nextCandle = this.historicalQueue.shift()
@@ -234,6 +249,10 @@ export default class BattleScene extends Phaser.Scene {
         console.log('Historical data playback completed')
       }
     } else {
+      // #region agent log
+      console.error('🔥🔥🔥 [H1] Generating SYNTHETIC candle - THIS IS THE AUTO-START BUG!', {price: this.currentPrice})
+      fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:246',message:'Generating SYNTHETIC candle (auto-generation)',data:{currentPrice:this.currentPrice},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
       // Generate synthetic candle
       this.generateNewCandle()
     }
@@ -852,7 +871,7 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private renderVolumeBars(candles: CandleData[], maxVolume: number, startX: number, spacing: number) {
-    if (!this.volumeGraphics) return
+    if (!this.volumeGraphics || !this.add) return
 
     const volumeGfx = this.volumeGraphics
     const barWidth = Math.max(2, spacing * 0.7)
@@ -870,6 +889,23 @@ export default class BattleScene extends Phaser.Scene {
         barWidth,
         volumeHeight
       )
+      
+      // Add date labels below volume (show every 5th or 10th candle to avoid crowding)
+      if (candle.time && index % 10 === 0) {
+        try {
+          const date = new Date(candle.time)
+          const monthDay = `${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`
+          const dateLabel = this.add.text(x, volumeY + this.volumeHeight + 5, monthDay, {
+            fontSize: '10px',
+            color: '#888888',
+            fontFamily: 'monospace'
+          })
+          dateLabel.setOrigin(0.5, 0)
+          this.priceLabels.push(dateLabel)
+        } catch (err) {
+          // Skip if date parsing fails
+        }
+      }
     })
   }
 
@@ -880,7 +916,11 @@ export default class BattleScene extends Phaser.Scene {
 
   private changeSpeed(multiplier: number) {
     this.speedMultiplier = multiplier
-    this.startCandleGeneration()
+    // No need to restart timer - React controls animation timing
+    // #region agent log
+    console.error('✅ [FIX] changeSpeed - multiplier updated, React controls timing')
+    fetch('http://127.0.0.1:7242/ingest/c60d8c8b-bd90-44b5-bbef-8c7f26cd8999',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'battle-scene.ts:900',message:'changeSpeed called',data:{multiplier},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
+    // #endregion
   }
 
   private changeCandleCount(count: number) {
