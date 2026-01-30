@@ -14,6 +14,8 @@ export interface PhaserGameRef {
 interface MarketApiResponse {
   success: boolean
   symbol: string
+  stockName?: string
+  year?: number
   data: Array<{
     time: string
     open: number
@@ -24,6 +26,7 @@ interface MarketApiResponse {
   }>
   count?: number
   isDemo?: boolean
+  isHistorical?: boolean
   message?: string
 }
 
@@ -34,6 +37,8 @@ interface PhaserGameProps {
   resistancePrice?: number
   autoFetch?: boolean
   fetchInterval?: number // in milliseconds, default 60000 (1 minute)
+  mode?: 'realtime' | 'historical' // 'historical' for random year/stock testing
+  onHistoricalDataLoaded?: (data: { symbol: string; stockName: string; year: number }) => void
 }
 
 export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
@@ -44,6 +49,8 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
     resistancePrice,
     autoFetch = true,
     fetchInterval = 60000,
+    mode = 'realtime',
+    onHistoricalDataLoaded,
   }, ref) {
     const gameRef = useRef<Phaser.Game | null>(null)
     const parentRef = useRef<HTMLDivElement>(null)
@@ -53,13 +60,15 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
     // Fetch market data from API
     const fetchMarketData = useCallback(async () => {
       try {
-        const response = await fetch(`/api/market?symbol=${symbol}&type=intraday`)
+        const apiType = mode === 'historical' ? 'historical' : 'intraday'
+        const response = await fetch(`/api/market?symbol=${symbol}&type=${apiType}`)
         const result: MarketApiResponse = await response.json()
 
         if (result.success && result.data && result.data.length > 0) {
           // Convert API data to CandleData format
+          const effectiveSymbol = result.symbol || symbol
           const candles: CandleData[] = result.data.map((item, index) => ({
-            id: `${symbol}-${index}-${item.time}`,
+            id: `${effectiveSymbol}-${index}-${item.time}`,
             time: item.time,
             open: item.open,
             high: item.high,
@@ -71,7 +80,7 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
           // Prepare update data
           const updateData: MarketDataUpdate = {
             candles,
-            symbol,
+            symbol: effectiveSymbol,
             targetPrice,
             resistancePrice,
           }
@@ -84,14 +93,26 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
             sceneRef.current.updateData(candles)
           }
 
+          // Notify parent about historical data
+          if (result.isHistorical && onHistoricalDataLoaded && result.stockName && result.year) {
+            onHistoricalDataLoaded({
+              symbol: result.symbol,
+              stockName: result.stockName,
+              year: result.year,
+            })
+          }
+
           if (result.isDemo) {
             console.log('Using demo market data:', result.message)
+          }
+          if (result.isHistorical) {
+            console.log('Historical data loaded:', result.message)
           }
         }
       } catch (error) {
         console.error('Failed to fetch market data:', error)
       }
-    }, [symbol, targetPrice, resistancePrice])
+    }, [symbol, targetPrice, resistancePrice, mode, onHistoricalDataLoaded])
 
     useImperativeHandle(ref, () => ({
       game: gameRef.current,

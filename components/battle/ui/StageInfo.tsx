@@ -1,6 +1,6 @@
 'use client'
 
-import { Shield, TrendingUp, Target, AlertTriangle } from 'lucide-react'
+import { Shield, TrendingUp, Target, AlertTriangle, Calendar } from 'lucide-react'
 
 interface StageInfoProps {
   stage: string
@@ -11,6 +11,8 @@ interface StageInfoProps {
   targetPrice?: number
   resistancePrice?: number
   symbol?: string
+  stockName?: string
+  year?: number
 }
 
 export function StageInfo({ 
@@ -21,7 +23,9 @@ export function StageInfo({
   currentPrice,
   targetPrice,
   resistancePrice,
-  symbol = 'AAPL'
+  symbol = 'AAPL',
+  stockName,
+  year,
 }: StageInfoProps) {
   const isProfit = parseFloat(profitPercent) >= 0
 
@@ -29,8 +33,20 @@ export function StageInfo({
     <div className="flex items-center justify-between flex-wrap gap-2">
       <div className="flex items-center gap-3">
         <div>
-          <h2 className="text-base font-bold text-foreground">{symbol}</h2>
-          <p className="text-xs text-muted-foreground">Real-time Market Data</p>
+          <h2 className="text-base font-bold text-foreground">
+            {symbol}
+            {stockName && <span className="text-sm font-normal text-muted-foreground ml-2">({stockName})</span>}
+          </h2>
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            {year ? (
+              <>
+                <Calendar className="h-3 w-3" />
+                <span>Historical Data - {year}</span>
+              </>
+            ) : (
+              'Real-time Market Data'
+            )}
+          </p>
         </div>
       </div>
 

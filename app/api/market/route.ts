@@ -44,6 +44,174 @@ interface AlphaVantageGlobalQuoteResponse {
   }
 }
 
+// Historical stock symbols with era-appropriate data
+const HISTORICAL_STOCKS = [
+  // 1920s-1940s
+  { symbol: 'GM', name: 'General Motors', era: [1920, 2025], basePrice: 40 },
+  { symbol: 'GE', name: 'General Electric', era: [1920, 2025], basePrice: 30 },
+  { symbol: 'US_STEEL', name: 'U.S. Steel', era: [1920, 2000], basePrice: 50 },
+  { symbol: 'AT&T', name: 'AT&T', era: [1920, 2025], basePrice: 25 },
+  { symbol: 'STD_OIL', name: 'Standard Oil', era: [1920, 1970], basePrice: 60 },
+  // 1950s-1980s
+  { symbol: 'IBM', name: 'IBM', era: [1950, 2025], basePrice: 100 },
+  { symbol: 'XOM', name: 'Exxon Mobil', era: [1970, 2025], basePrice: 70 },
+  { symbol: 'KO', name: 'Coca-Cola', era: [1950, 2025], basePrice: 45 },
+  { symbol: 'DIS', name: 'Disney', era: [1960, 2025], basePrice: 35 },
+  { symbol: 'MCD', name: "McDonald's", era: [1970, 2025], basePrice: 50 },
+  // 1990s-2000s
+  { symbol: 'MSFT', name: 'Microsoft', era: [1986, 2025], basePrice: 25 },
+  { symbol: 'AAPL', name: 'Apple', era: [1980, 2025], basePrice: 20 },
+  { symbol: 'INTC', name: 'Intel', era: [1980, 2025], basePrice: 30 },
+  { symbol: 'CSCO', name: 'Cisco', era: [1990, 2025], basePrice: 20 },
+  { symbol: 'AMZN', name: 'Amazon', era: [1997, 2025], basePrice: 18 },
+  // 2000s-2020s
+  { symbol: 'GOOGL', name: 'Google', era: [2004, 2025], basePrice: 85 },
+  { symbol: 'META', name: 'Meta (Facebook)', era: [2012, 2025], basePrice: 38 },
+  { symbol: 'TSLA', name: 'Tesla', era: [2010, 2025], basePrice: 17 },
+  { symbol: 'NFLX', name: 'Netflix', era: [2002, 2025], basePrice: 15 },
+  { symbol: 'NVDA', name: 'NVIDIA', era: [1999, 2025], basePrice: 12 },
+]
+
+// Historical market events that affect volatility and trends
+const MARKET_EVENTS: { year: number; month?: number; type: 'crash' | 'boom' | 'volatile' | 'stable'; magnitude: number }[] = [
+  { year: 1929, month: 10, type: 'crash', magnitude: 0.4 }, // Great Depression
+  { year: 1930, type: 'crash', magnitude: 0.3 },
+  { year: 1931, type: 'crash', magnitude: 0.25 },
+  { year: 1932, type: 'crash', magnitude: 0.2 },
+  { year: 1933, type: 'boom', magnitude: 0.3 },
+  { year: 1937, type: 'crash', magnitude: 0.25 },
+  { year: 1941, month: 12, type: 'crash', magnitude: 0.15 }, // Pearl Harbor
+  { year: 1945, type: 'boom', magnitude: 0.2 }, // WWII End
+  { year: 1962, type: 'crash', magnitude: 0.15 }, // Kennedy Slide
+  { year: 1973, type: 'crash', magnitude: 0.2 }, // Oil Crisis
+  { year: 1974, type: 'crash', magnitude: 0.25 },
+  { year: 1982, type: 'boom', magnitude: 0.2 }, // Bull market starts
+  { year: 1987, month: 10, type: 'crash', magnitude: 0.25 }, // Black Monday
+  { year: 1990, type: 'volatile', magnitude: 0.15 }, // Gulf War
+  { year: 1995, type: 'boom', magnitude: 0.25 }, // Tech boom
+  { year: 1999, type: 'boom', magnitude: 0.35 }, // Dot-com peak
+  { year: 2000, type: 'crash', magnitude: 0.3 }, // Dot-com crash
+  { year: 2001, month: 9, type: 'crash', magnitude: 0.2 }, // 9/11
+  { year: 2002, type: 'crash', magnitude: 0.2 },
+  { year: 2007, type: 'volatile', magnitude: 0.15 },
+  { year: 2008, month: 9, type: 'crash', magnitude: 0.4 }, // Financial Crisis
+  { year: 2009, month: 3, type: 'boom', magnitude: 0.3 }, // Recovery
+  { year: 2020, month: 3, type: 'crash', magnitude: 0.35 }, // COVID
+  { year: 2020, month: 4, type: 'boom', magnitude: 0.4 }, // COVID recovery
+  { year: 2021, type: 'boom', magnitude: 0.25 },
+  { year: 2022, type: 'crash', magnitude: 0.2 }, // Interest rates
+]
+
+// Generate historical daily data for a random year and stock
+function generateHistoricalData(): { candles: MarketCandle[]; symbol: string; year: number; stockName: string } {
+  // Pick random year between 1925 and 2025
+  const year = Math.floor(Math.random() * (2025 - 1925 + 1)) + 1925
+  
+  // Find stocks available in that era
+  const availableStocks = HISTORICAL_STOCKS.filter(
+    stock => stock.era[0] <= year && stock.era[1] >= year
+  )
+  
+  // Pick random stock from available ones
+  const stock = availableStocks[Math.floor(Math.random() * availableStocks.length)]
+  
+  // Find market events for this year
+  const yearEvents = MARKET_EVENTS.filter(e => e.year === year)
+  
+  // Calculate base price adjusted for era (inflation/deflation simulation)
+  const eraMultiplier = year < 1950 ? 0.3 : year < 1980 ? 0.8 : year < 2000 ? 1.5 : year < 2020 ? 3 : 5
+  let basePrice = stock.basePrice * eraMultiplier * (0.8 + Math.random() * 0.4)
+  
+  // Trading days in a year (approximately 252)
+  const tradingDays = 252
+  const candles: MarketCandle[] = []
+  
+  // Start from January 2nd (first trading day)
+  let currentDate = new Date(year, 0, 2)
+  let tradingDayCount = 0
+  
+  // Determine overall year trend
+  let yearTrend = 0
+  yearEvents.forEach(event => {
+    if (event.type === 'crash') yearTrend -= event.magnitude
+    else if (event.type === 'boom') yearTrend += event.magnitude
+    else if (event.type === 'volatile') yearTrend += (Math.random() - 0.5) * event.magnitude
+  })
+  
+  // If no events, random slight trend
+  if (yearEvents.length === 0) {
+    yearTrend = (Math.random() - 0.4) * 0.3 // Slight upward bias historically
+  }
+  
+  // Daily trend component
+  const dailyTrendComponent = yearTrend / tradingDays
+  
+  while (tradingDayCount < tradingDays && currentDate.getFullYear() === year) {
+    const dayOfWeek = currentDate.getDay()
+    
+    // Skip weekends
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      currentDate.setDate(currentDate.getDate() + 1)
+      continue
+    }
+    
+    // Check for month-specific events
+    const monthEvent = yearEvents.find(e => e.month === currentDate.getMonth() + 1)
+    let eventMultiplier = 1
+    let eventVolatility = 1
+    
+    if (monthEvent) {
+      if (monthEvent.type === 'crash') {
+        eventMultiplier = 1 - monthEvent.magnitude * Math.random()
+        eventVolatility = 2 + monthEvent.magnitude * 3
+      } else if (monthEvent.type === 'boom') {
+        eventMultiplier = 1 + monthEvent.magnitude * Math.random()
+        eventVolatility = 1.5 + monthEvent.magnitude * 2
+      } else {
+        eventVolatility = 2 + monthEvent.magnitude * 2
+      }
+    }
+    
+    // Base volatility varies by era
+    const eraVolatility = year < 1940 ? 0.03 : year < 1980 ? 0.02 : 0.025
+    const dailyVolatility = basePrice * eraVolatility * eventVolatility
+    
+    // Generate OHLC
+    const open = basePrice
+    const dailyChange = (Math.random() - 0.5) * dailyVolatility * 2 + (basePrice * dailyTrendComponent * eventMultiplier)
+    const close = Math.max(0.01, open + dailyChange)
+    
+    // High and low
+    const range = Math.abs(dailyChange) + dailyVolatility * Math.random()
+    const high = Math.max(open, close) + range * Math.random()
+    const low = Math.max(0.01, Math.min(open, close) - range * Math.random())
+    
+    // Volume (higher during volatile periods)
+    const baseVolume = year < 1950 ? 100000 : year < 1980 ? 500000 : year < 2000 ? 2000000 : 10000000
+    const volume = Math.floor(baseVolume * (0.5 + Math.random()) * eventVolatility)
+    
+    candles.push({
+      time: currentDate.toISOString().split('T')[0],
+      open: parseFloat(open.toFixed(2)),
+      high: parseFloat(high.toFixed(2)),
+      low: parseFloat(low.toFixed(2)),
+      close: parseFloat(close.toFixed(2)),
+      volume,
+    })
+    
+    basePrice = close
+    tradingDayCount++
+    currentDate.setDate(currentDate.getDate() + 1)
+  }
+  
+  return {
+    candles,
+    symbol: stock.symbol,
+    year,
+    stockName: stock.name,
+  }
+}
+
 // Demo data for when API key is not available or rate limited
 function generateDemoData(symbol: string, count: number = 60): MarketCandle[] {
   const candles: MarketCandle[] = []
@@ -158,11 +326,26 @@ async function fetchGlobalQuote(symbol: string, apiKey: string): Promise<MarketC
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const symbol = searchParams.get('symbol') || 'AAPL'
-  const type = searchParams.get('type') || 'intraday' // 'intraday' or 'quote'
+  const type = searchParams.get('type') || 'intraday' // 'intraday', 'quote', or 'historical'
   
   const apiKey = process.env.ALPHA_VANTAGE_API_KEY
   
   try {
+    // Historical mode: Generate random year (1925-2025) and random stock data
+    if (type === 'historical') {
+      const historicalData = generateHistoricalData()
+      return NextResponse.json({
+        success: true,
+        symbol: historicalData.symbol,
+        stockName: historicalData.stockName,
+        year: historicalData.year,
+        data: historicalData.candles,
+        count: historicalData.candles.length,
+        isHistorical: true,
+        message: `Historical simulation: ${historicalData.stockName} (${historicalData.symbol}) in ${historicalData.year}`,
+      })
+    }
+    
     // If no API key, return demo data
     if (!apiKey || apiKey === 'demo') {
       console.log('No API key configured, using demo data')

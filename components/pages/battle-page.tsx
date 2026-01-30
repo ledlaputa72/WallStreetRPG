@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePhaserGame } from '@/components/battle/hooks/usePhaserGame'
@@ -32,8 +32,12 @@ export function BattlePage() {
   const stage = '4-12'
   const wave = { current: 1, max: 5 }
   
-  // Market symbol and price targets
-  const [symbol] = useState('AAPL')
+  // Historical mode settings (for chart animation testing)
+  const [historicalInfo, setHistoricalInfo] = useState<{
+    symbol: string
+    stockName: string
+    year: number
+  } | null>(null)
   
   const {
     phaserRef,
@@ -47,6 +51,16 @@ export function BattlePage() {
     handleCandleCountChange,
     handleSpeedChange,
   } = usePhaserGame()
+
+  // Handle historical data loaded
+  const handleHistoricalDataLoaded = useCallback((data: { symbol: string; stockName: string; year: number }) => {
+    setHistoricalInfo(data)
+  }, [])
+
+  // Display symbol - from historical data or default
+  const displaySymbol = historicalInfo?.symbol || 'LOADING...'
+  const displayStockName = historicalInfo?.stockName
+  const displayYear = historicalInfo?.year
 
   // Calculate target and resistance based on current price
   // Target: +5% from current price, Resistance: +10% from current price
@@ -80,7 +94,9 @@ export function BattlePage() {
             currentPrice={currentPrice}
             targetPrice={targetPrice}
             resistancePrice={resistancePrice}
-            symbol={symbol}
+            symbol={displaySymbol}
+            stockName={displayStockName}
+            year={displayYear}
           />
         </div>
 
@@ -89,11 +105,13 @@ export function BattlePage() {
           <PhaserGame 
             ref={phaserRef} 
             currentActiveScene={undefined}
-            symbol={symbol}
+            symbol={displaySymbol}
             targetPrice={targetPrice}
             resistancePrice={resistancePrice}
             autoFetch={true}
             fetchInterval={60000}
+            mode="historical"
+            onHistoricalDataLoaded={handleHistoricalDataLoaded}
           />
         </div>
 
