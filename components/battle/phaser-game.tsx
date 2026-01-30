@@ -56,8 +56,9 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
     const parentRef = useRef<HTMLDivElement>(null)
     const sceneRef = useRef<BattleScene | null>(null)
     const fetchIntervalRef = useRef<NodeJS.Timeout | null>(null)
+    const fetchMarketDataRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
-    // Fetch market data from API
+    // Fetch market data from API - only used when autoFetch is true (not used in battle page)
     const fetchMarketData = useCallback(async () => {
       try {
         const apiType = mode === 'historical' ? 'historical' : 'intraday'
@@ -65,7 +66,6 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
         const result: MarketApiResponse = await response.json()
 
         if (result.success && result.data && result.data.length > 0) {
-          // Convert API data to CandleData format
           const effectiveSymbol = result.symbol || symbol
           const candles: CandleData[] = result.data.map((item, index) => ({
             id: `${effectiveSymbol}-${index}-${item.time}`,
@@ -77,7 +77,6 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
             volume: item.volume,
           }))
 
-          // Prepare update data
           const updateData: MarketDataUpdate = {
             candles,
             symbol: effectiveSymbol,
@@ -85,15 +84,12 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
             resistancePrice,
           }
 
-          // Send data to Phaser scene via event bus
           eventBus.emit(EVENTS.UPDATE_MARKET_DATA, updateData)
 
-          // Also update via direct reference if available
           if (sceneRef.current) {
             sceneRef.current.updateData(candles)
           }
 
-          // Notify parent about historical data
           if (result.isHistorical && onHistoricalDataLoaded && result.stockName && result.year) {
             onHistoricalDataLoaded({
               symbol: result.symbol,
@@ -101,18 +97,13 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
               year: result.year,
             })
           }
-
-          if (result.isDemo) {
-            console.log('Using demo market data:', result.message)
-          }
-          if (result.isHistorical) {
-            console.log('Historical data loaded:', result.message)
-          }
         }
       } catch (error) {
         console.error('Failed to fetch market data:', error)
       }
     }, [symbol, targetPrice, resistancePrice, mode, onHistoricalDataLoaded])
+
+    fetchMarketDataRef.current = fetchMarketData
 
     useImperativeHandle(ref, () => ({
       game: gameRef.current,
@@ -166,10 +157,9 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
           if (currentActiveScene) {
             currentActiveScene(scene)
           }
-          
-          // Initial fetch if autoFetch is enabled
-          if (autoFetch) {
-            fetchMarketData()
+          // Initial fetch only if autoFetch is enabled (battle page uses autoFetch=false)
+          if (autoFetch && fetchMarketDataRef.current) {
+            fetchMarketDataRef.current()
           }
         }
       }
@@ -198,7 +188,8 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
         }
         sceneRef.current = null
       }
-    }, [currentActiveScene, autoFetch, fetchMarketData])
+    // Intentionally omit fetchMarketData - game must not be destroyed when price/target/resistance change
+    }, [currentActiveScene, autoFetch])
 
     // Setup periodic fetch interval
     useEffect(() => {
@@ -211,7 +202,7 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
 
       // Set up new interval for periodic fetching
       fetchIntervalRef.current = setInterval(() => {
-        fetchMarketData()
+        fetchMarketDataRef.current()
       }, fetchInterval)
 
       return () => {
@@ -220,7 +211,7 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
           fetchIntervalRef.current = null
         }
       }
-    }, [autoFetch, fetchInterval, fetchMarketData])
+    }, [autoFetch, fetchInterval])
 
     // Update target/resistance prices when they change
     useEffect(() => {

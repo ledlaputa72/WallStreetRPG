@@ -289,29 +289,23 @@ export default class BattleScene extends Phaser.Scene {
     eventBus.emit(EVENTS.PRICE_CHANGED, close, close - open)
   }
 
-  // Public method to update market data from API
+  // Public method to update market data from API (or target/resistance only)
   public updateMarketData(data: MarketDataUpdate) {
+    // Always update target/resistance when provided (e.g. from React price updates)
+    if (data.targetPrice !== undefined) this.targetPrice = data.targetPrice
+    if (data.resistancePrice !== undefined) this.resistancePrice = data.resistancePrice
+
+    // Replace candles only when new bulk data is sent (e.g. autoFetch mode). Battle page uses NEW_CANDLE only.
     if (data.candles && data.candles.length > 0) {
-      if (data.targetPrice) this.targetPrice = data.targetPrice
-      if (data.resistancePrice) this.resistancePrice = data.resistancePrice
-      
-      // Clear existing candles and start fresh
       this.candles = []
-      
-      // Queue all candles for animated playback
       this.historicalQueue = data.candles.map((c, i) => ({
         ...c,
         id: c.id || `api-candle-${i}`,
       }))
-      
       this.isPlayingHistorical = true
-      
-      // Set initial price from first candle
       if (this.historicalQueue.length > 0) {
         this.currentPrice = this.historicalQueue[0].open
       }
-      
-      console.log(`Starting historical playback: ${this.historicalQueue.length} candles queued`)
     }
   }
 
@@ -320,46 +314,43 @@ export default class BattleScene extends Phaser.Scene {
     this.updateMarketData({ candles })
   }
 
-  // Public method to clear chart (called when Stop is pressed)
+  // Public method to clear chart (called only when Stop is pressed)
   public clearChart() {
-    console.log('🧹 Clearing chart data...')
-    
-    // Clear all candles
     this.candles = []
     this.historicalQueue = []
-    
-    // Stop historical playback
     this.isPlayingHistorical = false
-    
-    // Stop animation timer
+
     if (this.animationTimer) {
       this.animationTimer.destroy()
       this.animationTimer = null
     }
-    
-    // Reset prices
+
     this.currentPrice = 0
-    
-    // Clear the chart visually
-    this.renderChart()
+    this.scrollOffsetX = 0
+
+    if (this.add && this.gridGraphics) {
+      this.renderChart()
+    }
   }
 
   private addNewCandle(candle: CandleData) {
+    if (!this.add) return
     this.candles.push(candle)
 
-    // Keep all candles up to 1 year (250 trading days)
     const maxCandles = 300
     if (this.candles.length > maxCandles) {
-      this.candles.shift() // Remove oldest candle (sliding window)
+      this.candles.shift()
     }
 
-    // Update current price
     this.currentPrice = candle.close
 
-    // Smooth scroll animation with effects
-    this.animateChartShift()
+    if (this.sys?.isActive()) {
+      this.animateChartShift()
+    } else {
+      this.scrollOffsetX = 0
+      this.renderChart()
+    }
 
-    // Emit events
     eventBus.emit(EVENTS.CANDLE_GENERATED, candle)
     eventBus.emit(EVENTS.PRICE_CHANGED, candle.close, candle.close - candle.open)
   }
@@ -972,7 +963,9 @@ export default class BattleScene extends Phaser.Scene {
 
   private changeChartType(type: 'candle' | 'area' | 'line') {
     this.chartType = type
-    this.renderChart()
+    if (this.add && this.gridGraphics) {
+      this.renderChart()
+    }
   }
 
   private changeSpeed(multiplier: number) {
@@ -980,34 +973,12 @@ export default class BattleScene extends Phaser.Scene {
     // No need to restart timer - React controls animation timing
   }
 
+  // Display-only: change how many candles are visible (20/30/40). Do NOT add or reload data.
   private changeCandleCount(count: number) {
     this.visibleCandleCount = count
-
-    while (this.candles.length < count) {
-      const lastCandle = this.candles[this.candles.length - 1] || {
-        open: 175,
-        close: 175,
-        high: 176,
-        low: 174,
-        volume: 500000,
-        id: 'initial',
-      }
-
-      const volatility = (Math.random() - 0.5) * 2
-      const open = lastCandle.close
-      const close = open + volatility
-
-      this.candles.push({
-        id: `candle-${Date.now()}-${Math.random()}`,
-        open: parseFloat(open.toFixed(2)),
-        close: parseFloat(close.toFixed(2)),
-        high: parseFloat(Math.max(open, close + Math.random()).toFixed(2)),
-        low: parseFloat(Math.min(open, close - Math.random()).toFixed(2)),
-        volume: Math.random() * 1000000 + 100000,
-      })
+    if (this.add && this.gridGraphics) {
+      this.renderChart()
     }
-
-    this.renderChart()
   }
 
   private onAttackEnemy(_enemyId: string) {

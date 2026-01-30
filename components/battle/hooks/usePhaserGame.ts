@@ -29,7 +29,6 @@ export function usePhaserGame() {
       }
 
       const handleSceneReady = () => {
-        console.log('Scene ready event received!')
         setPhaserReady(true)
       }
 
@@ -55,13 +54,10 @@ export function usePhaserGame() {
     eventBusRef.current.emit(eventsRef.current.CHANGE_CHART_TYPE, type)
   }
 
-  // 캔들 개수 변경
+  // 캔들 개수 변경 (display only - does not reload data)
   const handleCandleCountChange = (count: CandleCount) => {
     if (typeof window === 'undefined' || !eventBusRef.current || !eventsRef.current) return
-    
     setCandleCount(count)
-    console.log(`${count}x button clicked`)
-    console.log(`Emitting CHANGE_CANDLE_COUNT: ${count}`)
     eventBusRef.current.emit(eventsRef.current.CHANGE_CANDLE_COUNT, count)
   }
 
