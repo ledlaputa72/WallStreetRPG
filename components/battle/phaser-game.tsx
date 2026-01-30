@@ -1,38 +1,114 @@
 'use client'
 
-import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
+import { useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react'
 import * as Phaser from 'phaser'
-import BattleScene from './scenes/battle-scene'
+import BattleScene, { CandleData, MarketDataUpdate } from './scenes/battle-scene'
+import { eventBus, EVENTS } from './event-bus'
 
 export interface PhaserGameRef {
   game: Phaser.Game | null
   scene: BattleScene | null
+  fetchMarketData: () => Promise<void>
+}
+
+interface MarketApiResponse {
+  success: boolean
+  symbol: string
+  data: Array<{
+    time: string
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+  }>
+  count?: number
+  isDemo?: boolean
+  message?: string
 }
 
 interface PhaserGameProps {
   currentActiveScene?: (scene: Phaser.Scene) => void
+  symbol?: string
+  targetPrice?: number
+  resistancePrice?: number
+  autoFetch?: boolean
+  fetchInterval?: number // in milliseconds, default 60000 (1 minute)
 }
 
 export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
-  function PhaserGame({ currentActiveScene }, ref) {
+  function PhaserGame({ 
+    currentActiveScene, 
+    symbol = 'AAPL',
+    targetPrice,
+    resistancePrice,
+    autoFetch = true,
+    fetchInterval = 60000,
+  }, ref) {
     const gameRef = useRef<Phaser.Game | null>(null)
     const parentRef = useRef<HTMLDivElement>(null)
+    const sceneRef = useRef<BattleScene | null>(null)
+    const fetchIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+    // Fetch market data from API
+    const fetchMarketData = useCallback(async () => {
+      try {
+        const response = await fetch(`/api/market?symbol=${symbol}&type=intraday`)
+        const result: MarketApiResponse = await response.json()
+
+        if (result.success && result.data && result.data.length > 0) {
+          // Convert API data to CandleData format
+          const candles: CandleData[] = result.data.map((item, index) => ({
+            id: `${symbol}-${index}-${item.time}`,
+            time: item.time,
+            open: item.open,
+            high: item.high,
+            low: item.low,
+            close: item.close,
+            volume: item.volume,
+          }))
+
+          // Prepare update data
+          const updateData: MarketDataUpdate = {
+            candles,
+            symbol,
+            targetPrice,
+            resistancePrice,
+          }
+
+          // Send data to Phaser scene via event bus
+          eventBus.emit(EVENTS.UPDATE_MARKET_DATA, updateData)
+
+          // Also update via direct reference if available
+          if (sceneRef.current) {
+            sceneRef.current.updateData(candles)
+          }
+
+          if (result.isDemo) {
+            console.log('Using demo market data:', result.message)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch market data:', error)
+      }
+    }, [symbol, targetPrice, resistancePrice])
 
     useImperativeHandle(ref, () => ({
       game: gameRef.current,
-      scene: gameRef.current?.scene.getScene('BattleScene') as BattleScene || null,
+      scene: sceneRef.current,
+      fetchMarketData,
     }))
 
     useEffect(() => {
       if (typeof window === 'undefined' || !parentRef.current) return
 
-      // 이미 게임이 생성되었으면 리턴
+      // If game already exists, return
       if (gameRef.current) return
 
       const config: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
         parent: parentRef.current,
-        transparent: true, // 배경 투명
+        transparent: true,
         backgroundColor: 'transparent',
         width: parentRef.current.offsetWidth || 800,
         height: parentRef.current.offsetHeight || 600,
@@ -52,21 +128,34 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
           antialias: true,
           antialiasGL: true,
         },
+        input: {
+          mouse: {
+            preventDefaultWheel: false,
+          },
+        },
       }
 
       gameRef.current = new Phaser.Game(config)
 
-      // Scene이 준비되면 콜백 호출
-      if (currentActiveScene) {
-        gameRef.current.events.on('ready', () => {
-          const scene = gameRef.current?.scene.getScene('BattleScene')
-          if (scene) {
+      // When scene is ready, store reference and optionally fetch data
+      const handleSceneReady = () => {
+        const scene = gameRef.current?.scene.getScene('BattleScene') as BattleScene
+        if (scene) {
+          sceneRef.current = scene
+          if (currentActiveScene) {
             currentActiveScene(scene)
           }
-        })
+          
+          // Initial fetch if autoFetch is enabled
+          if (autoFetch) {
+            fetchMarketData()
+          }
+        }
       }
 
-      // 리사이즈 핸들러
+      eventBus.on(EVENTS.SCENE_READY, handleSceneReady)
+
+      // Resize handler
       const handleResize = () => {
         if (gameRef.current && parentRef.current) {
           gameRef.current.scale.resize(
@@ -80,13 +169,48 @@ export const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
 
       // Cleanup
       return () => {
+        eventBus.off(EVENTS.SCENE_READY, handleSceneReady)
         window.removeEventListener('resize', handleResize)
         if (gameRef.current) {
           gameRef.current.destroy(true)
           gameRef.current = null
         }
+        sceneRef.current = null
       }
-    }, [currentActiveScene])
+    }, [currentActiveScene, autoFetch, fetchMarketData])
+
+    // Setup periodic fetch interval
+    useEffect(() => {
+      if (!autoFetch) return
+
+      // Clear existing interval
+      if (fetchIntervalRef.current) {
+        clearInterval(fetchIntervalRef.current)
+      }
+
+      // Set up new interval for periodic fetching
+      fetchIntervalRef.current = setInterval(() => {
+        fetchMarketData()
+      }, fetchInterval)
+
+      return () => {
+        if (fetchIntervalRef.current) {
+          clearInterval(fetchIntervalRef.current)
+          fetchIntervalRef.current = null
+        }
+      }
+    }, [autoFetch, fetchInterval, fetchMarketData])
+
+    // Update target/resistance prices when they change
+    useEffect(() => {
+      if (sceneRef.current && (targetPrice !== undefined || resistancePrice !== undefined)) {
+        eventBus.emit(EVENTS.UPDATE_MARKET_DATA, {
+          candles: [],
+          targetPrice,
+          resistancePrice,
+        })
+      }
+    }, [targetPrice, resistancePrice])
 
     return (
       <div

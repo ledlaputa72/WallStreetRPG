@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePhaserGame } from '@/components/battle/hooks/usePhaserGame'
@@ -31,6 +32,9 @@ export function BattlePage() {
   const stage = '4-12'
   const wave = { current: 1, max: 5 }
   
+  // Market symbol and price targets
+  const [symbol] = useState('AAPL')
+  
   const {
     phaserRef,
     phaserReady,
@@ -43,6 +47,22 @@ export function BattlePage() {
     handleCandleCountChange,
     handleSpeedChange,
   } = usePhaserGame()
+
+  // Calculate target and resistance based on current price
+  // Target: +5% from current price, Resistance: +10% from current price
+  const targetPrice = useMemo(() => {
+    if (currentPrice > 0) {
+      return parseFloat((currentPrice * 1.05).toFixed(2))
+    }
+    return undefined
+  }, [currentPrice])
+
+  const resistancePrice = useMemo(() => {
+    if (currentPrice > 0) {
+      return parseFloat((currentPrice * 1.10).toFixed(2))
+    }
+    return undefined
+  }, [currentPrice])
 
   const allCharacters = [mockHero, ...mockPartners]
 
@@ -58,12 +78,23 @@ export function BattlePage() {
             maxWave={wave.max}
             profitPercent={profitPercent}
             currentPrice={currentPrice}
+            targetPrice={targetPrice}
+            resistancePrice={resistancePrice}
+            symbol={symbol}
           />
         </div>
 
         {/* Chart Area with Phaser */}
         <div className="flex-1 overflow-hidden relative">
-          <PhaserGame ref={phaserRef} currentActiveScene={undefined} />
+          <PhaserGame 
+            ref={phaserRef} 
+            currentActiveScene={undefined}
+            symbol={symbol}
+            targetPrice={targetPrice}
+            resistancePrice={resistancePrice}
+            autoFetch={true}
+            fetchInterval={60000}
+          />
         </div>
 
         {/* Chart Controls */}

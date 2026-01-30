@@ -2,6 +2,7 @@ import * as Phaser from 'phaser'
 import { eventBus, EVENTS } from '../event-bus'
 
 export interface CandleData {
+  time?: string
   open: number
   close: number
   high: number
@@ -10,33 +11,61 @@ export interface CandleData {
   id: string
 }
 
+export interface MarketDataUpdate {
+  candles: CandleData[]
+  symbol?: string
+  targetPrice?: number
+  resistancePrice?: number
+}
+
 export default class BattleScene extends Phaser.Scene {
   private candles: CandleData[] = []
-  private candleGraphics: Phaser.GameObjects.Graphics[] = []
-  private volumeGraphics: Phaser.GameObjects.Graphics[] = []
+  private candleGraphics: Phaser.GameObjects.Graphics | null = null
+  private volumeGraphics: Phaser.GameObjects.Graphics | null = null
+  private gridGraphics: Phaser.GameObjects.Graphics | null = null
+  private priceLineGraphics: Phaser.GameObjects.Graphics | null = null
   private chartType: 'candle' | 'area' | 'line' = 'candle'
   private speedMultiplier: number = 1
   private visibleCandleCount: number = 20
-  private candleWidth: number = 8
-  private candleGap: number = 2
   private chartHeight: number = 0
   private chartWidth: number = 0
-  private volumeHeight: number = 80
+  private chartPadding = { top: 40, right: 80, bottom: 100, left: 10 }
+  private volumeHeight: number = 60
   private animationTimer: Phaser.Time.TimerEvent | null = null
   private currentPrice: number = 125000
   private particles: Phaser.GameObjects.Particles.ParticleEmitter | null = null
-  private priceLabel: Phaser.GameObjects.Text | null = null
+  private priceLabels: Phaser.GameObjects.Text[] = []
+  private currentPriceLabel: Phaser.GameObjects.Text | null = null
   private areaFillGraphics: Phaser.GameObjects.Graphics | null = null
   private currentMarkerX: number = 0
   private currentMarkerY: number = 0
   private markerCircle: Phaser.GameObjects.Graphics | null = null
+
+  // Zoom and pan
+  private zoomLevel: number = 1
+  private minZoom: number = 0.5
+  private maxZoom: number = 3
+  private panOffset: number = 0
+  private isDragging: boolean = false
+  private dragStartX: number = 0
+  private lastPanOffset: number = 0
+
+  // Target/Resistance prices for autoscale
+  private targetPrice: number | null = null
+  private resistancePrice: number | null = null
+
+  // Colors
+  private readonly BULL_COLOR = 0x22c55e // Green for up
+  private readonly BEAR_COLOR = 0xef4444 // Red for down
+  private readonly GRID_COLOR = 0x334155
+  private readonly PRICE_LINE_COLOR = 0xfbbf24 // Amber for current price
 
   constructor() {
     super('BattleScene')
   }
 
   preload() {
-    // 파티클용 간단한 원형 텍스처 생성
+    // Create particle texture
     const graphics = this.add.graphics()
     graphics.fillStyle(0xffffff)
     graphics.fillCircle(16, 16, 16)
@@ -52,55 +81,92 @@ export default class BattleScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.cameras.main
-    this.chartWidth = width
-    this.chartHeight = height - this.volumeHeight - 20
+    this.chartWidth = width - this.chartPadding.left - this.chartPadding.right
+    this.chartHeight = height - this.chartPadding.top - this.chartPadding.bottom - this.volumeHeight
 
-    // 초기 캔들 생성
+    // Initialize graphics layers (order matters for rendering)
+    this.gridGraphics = this.add.graphics()
+    this.volumeGraphics = this.add.graphics()
+    this.candleGraphics = this.add.graphics()
+    this.priceLineGraphics = this.add.graphics()
+
+    // Initialize candles
     this.initializeCandles()
 
-    // 파티클 시스템 설정
+    // Setup particle system
     this.setupParticles()
 
-    // 가격 라벨 설정
-    this.priceLabel = this.add.text(width - 150, 20, '', {
-      fontSize: '24px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-      backgroundColor: '#000000aa',
-      padding: { x: 10, y: 5 }
-    })
+    // Setup input handlers for zoom and pan
+    this.setupInputHandlers()
 
-    // 이벤트 리스너 등록
+    // Event listeners
     eventBus.on(EVENTS.NEW_CANDLE, this.addNewCandle.bind(this))
     eventBus.on(EVENTS.CHANGE_CHART_TYPE, this.changeChartType.bind(this))
     eventBus.on(EVENTS.CHANGE_SPEED, this.changeSpeed.bind(this))
     eventBus.on(EVENTS.CHANGE_CANDLE_COUNT, this.changeCandleCount.bind(this))
     eventBus.on(EVENTS.ATTACK_ENEMY, this.onAttackEnemy.bind(this))
+    eventBus.on(EVENTS.UPDATE_MARKET_DATA, this.updateMarketData.bind(this))
 
-    // 자동 캔들 생성 시작
+    // Start auto candle generation
     this.startCandleGeneration()
 
-    // Scene 준비 완료 알림
+    // Scene ready
     eventBus.emit(EVENTS.SCENE_READY)
   }
 
+  private setupInputHandlers() {
+    // Mouse wheel zoom
+    this.input.on('wheel', (pointer: Phaser.Input.Pointer, _gameObjects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number) => {
+      const zoomDelta = deltaY > 0 ? -0.1 : 0.1
+      this.zoomLevel = Phaser.Math.Clamp(this.zoomLevel + zoomDelta, this.minZoom, this.maxZoom)
+      this.renderChart()
+    })
+
+    // Drag to pan
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.isDragging = true
+      this.dragStartX = pointer.x
+      this.lastPanOffset = this.panOffset
+    })
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (this.isDragging) {
+        const deltaX = pointer.x - this.dragStartX
+        this.panOffset = this.lastPanOffset + deltaX
+        
+        // Clamp pan offset
+        const maxPan = Math.max(0, (this.candles.length - this.visibleCandleCount) * 15 * this.zoomLevel)
+        this.panOffset = Phaser.Math.Clamp(this.panOffset, -maxPan, maxPan)
+        
+        this.renderChart()
+      }
+    })
+
+    this.input.on('pointerup', () => {
+      this.isDragging = false
+    })
+
+    this.input.on('pointerupoutside', () => {
+      this.isDragging = false
+    })
+  }
+
   private initializeCandles() {
-    // 초기 캔들 생성 (visibleCandleCount 개수만큼)
-    let basePrice = 125000
+    let basePrice = 175 // Starting price (like AAPL)
     for (let i = 0; i < this.visibleCandleCount; i++) {
-      const volatility = (Math.random() - 0.5) * 5000
+      const volatility = (Math.random() - 0.5) * 3
       const open = basePrice
       const close = basePrice + volatility
-      const high = Math.max(open, close) + Math.random() * 2000
-      const low = Math.min(open, close) - Math.random() * 2000
-      
+      const high = Math.max(open, close) + Math.random() * 1.5
+      const low = Math.min(open, close) - Math.random() * 1.5
+
       this.candles.push({
         id: `candle-${i}`,
-        open,
-        close,
-        high,
-        low,
-        volume: Math.random() * 50000,
+        open: parseFloat(open.toFixed(2)),
+        close: parseFloat(close.toFixed(2)),
+        high: parseFloat(high.toFixed(2)),
+        low: parseFloat(low.toFixed(2)),
+        volume: Math.random() * 1000000 + 100000,
       })
       basePrice = close
     }
@@ -109,11 +175,10 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private setupParticles() {
-    // 파티클 효과 설정 (공격, 스킬 사용 시)
     try {
       this.particles = this.add.particles(0, 0, 'particle', {
         speed: { min: 100, max: 200 },
-        scale: { start: 1, end: 0 },
+        scale: { start: 0.8, end: 0 },
         blendMode: 'ADD',
         lifespan: 600,
         gravityY: 200,
@@ -126,14 +191,13 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   private startCandleGeneration() {
-    // Scene의 time 시스템이 초기화되었는지 확인
     if (!this.time) {
       console.warn('Scene time system not initialized')
       return
     }
-    
-    const baseInterval = 2000 // 2초마다 새 캔들
-    
+
+    const baseInterval = 2000
+
     try {
       if (this.animationTimer) {
         this.animationTimer.destroy()
@@ -155,705 +219,643 @@ export default class BattleScene extends Phaser.Scene {
     if (this.candles.length === 0) return
 
     const lastCandle = this.candles[this.candles.length - 1]
-    const volatility = (Math.random() - 0.5) * 4000
+    const volatility = (Math.random() - 0.5) * 2
     const open = lastCandle.close
     const close = open + volatility
-    const high = Math.max(open, close) + Math.random() * 2000
-    const low = Math.min(open, close) - Math.random() * 2000
+    const high = Math.max(open, close) + Math.random() * 1
+    const low = Math.min(open, close) - Math.random() * 1
 
     const newCandle: CandleData = {
       id: `candle-${Date.now()}`,
-      open,
-      close,
-      high,
-      low,
-      volume: Math.random() * 50000,
+      open: parseFloat(open.toFixed(2)),
+      close: parseFloat(close.toFixed(2)),
+      high: parseFloat(high.toFixed(2)),
+      low: parseFloat(low.toFixed(2)),
+      volume: Math.random() * 1000000 + 100000,
+      time: new Date().toISOString(),
     }
 
     this.addNewCandle(newCandle)
     this.currentPrice = close
 
-    // React에 가격 변경 알림
     eventBus.emit(EVENTS.PRICE_CHANGED, close, close - open)
+  }
+
+  // Public method to update market data from API
+  public updateMarketData(data: MarketDataUpdate) {
+    if (data.candles && data.candles.length > 0) {
+      // Replace candles with API data
+      this.candles = data.candles.map((c, i) => ({
+        ...c,
+        id: c.id || `api-candle-${i}`,
+      }))
+      
+      if (data.targetPrice) this.targetPrice = data.targetPrice
+      if (data.resistancePrice) this.resistancePrice = data.resistancePrice
+      
+      const lastCandle = this.candles[this.candles.length - 1]
+      this.currentPrice = lastCandle.close
+      
+      this.renderChart()
+      eventBus.emit(EVENTS.PRICE_CHANGED, lastCandle.close, lastCandle.close - lastCandle.open)
+    }
+  }
+
+  // Public method to update data (called from React)
+  public updateData(candles: CandleData[]) {
+    this.updateMarketData({ candles })
   }
 
   private addNewCandle(candle: CandleData) {
     this.candles.push(candle)
-    
-    // 최대 캔들 개수 유지 (현재 표시 개수 + 10개 버퍼)
-    const maxCandles = Math.max(40, this.visibleCandleCount + 10)
+
+    const maxCandles = Math.max(100, this.visibleCandleCount + 20)
     if (this.candles.length > maxCandles) {
       this.candles.shift()
     }
 
-    // 먼저 차트를 렌더링하여 마커 위치 업데이트
-    this.renderChart()
-    
-    // 업데이트된 마커 위치에서 이펙트 발생
-    this.showPriceChangeEffect(candle)
+    // Smooth scroll animation
+    this.animateChartShift()
 
     eventBus.emit(EVENTS.CANDLE_GENERATED, candle)
   }
 
+  private animateChartShift() {
+    // Render with animation
+    this.renderChart()
+    this.showPriceChangeEffect(this.candles[this.candles.length - 1])
+  }
+
   private showPriceChangeEffect(candle: CandleData) {
-    // Scene이 초기화되지 않았으면 효과를 건너뜀
-    if (!this.add || !this.tweens) {
-      return
-    }
-    
+    if (!this.add || !this.tweens) return
+
     try {
       const isUp = candle.close > candle.open
-      // 현재 마커 위치 사용 (차트의 가장 오른쪽 끝 지점)
       const x = this.currentMarkerX
       const y = this.currentMarkerY
 
-      // 캔들의 body 길이 계산 (변화 강도)
       const bodyLength = Math.abs(candle.close - candle.open)
       
-      // 강도 결정 (1: 약함, 2: 중간, 3: 강함)
       let intensity: 1 | 2 | 3
-      if (bodyLength < 1500) {
+      if (bodyLength < 0.5) {
         intensity = 1
-      } else if (bodyLength < 3000) {
+      } else if (bodyLength < 1) {
         intensity = 2
       } else {
         intensity = 3
       }
 
-      // 색상 결정
-      // 녹색 캔들 (상승): 파란색 이펙트
-      // 빨간색 캔들 (하락): 오렌지 이펙트
-      const particleColor = isUp ? 0x0088ff : 0xff8800
-      
-      // 강도에 따른 파티클 수와 크기
-      const particleCount = intensity === 1 ? 10 : intensity === 2 ? 20 : 30
-      const particleSize = intensity === 1 ? 3 : intensity === 2 ? 4.5 : 6  // 원의 크기 (반지름)
+      const particleColor = isUp ? this.BULL_COLOR : this.BEAR_COLOR
+      const particleCount = intensity === 1 ? 8 : intensity === 2 ? 15 : 25
 
-      // 파티클 효과
+      // Particle effect
       if (this.particles) {
         try {
-          // 파티클 색상 및 스케일 조정
-          const emitter = this.particles as any
-          
-          // 색상 설정
-          if (emitter.setTint) {
-            emitter.setTint(particleColor)
-          } else if (emitter.particleTint) {
-            emitter.particleTint = particleColor
+          const emitter = this.particles as Phaser.GameObjects.Particles.ParticleEmitter
+          if (emitter.setParticleTint) {
+            emitter.setParticleTint(particleColor)
           }
-          
-          // 파티클 발사
           if (emitter.explode) {
             emitter.explode(particleCount, x, y)
-          } else if (emitter.emitParticleAt) {
-            for (let i = 0; i < particleCount; i++) {
-              emitter.emitParticleAt(x, y)
-            }
           }
         } catch (e) {
-          // 파티클 실패 시 무시
+          // Particle failure ignored
         }
       }
 
-      // 강도에 따른 이펙트 원 그리기
+      // Ripple effect
       const effectCircle = this.add.graphics()
       if (effectCircle) {
         effectCircle.lineStyle(2, particleColor, 0.8)
-        effectCircle.strokeCircle(x, y, particleSize)
-        
-        // 원 확장 애니메이션
+        effectCircle.strokeCircle(x, y, 5)
+
         this.tweens.add({
           targets: effectCircle,
           alpha: 0,
-          duration: 600,
+          duration: 500,
           onUpdate: () => {
             effectCircle.clear()
             effectCircle.lineStyle(2, particleColor, effectCircle.alpha)
-            effectCircle.strokeCircle(x, y, particleSize + (1 - effectCircle.alpha) * 10)
+            effectCircle.strokeCircle(x, y, 5 + (1 - effectCircle.alpha) * 15)
           },
           onComplete: () => effectCircle.destroy(),
         })
       }
 
-      // 타격 이펙트: 방사형 임팩트 라인
-      const impactLines = this.add.graphics()
-      if (impactLines) {
-        // 강도에 따른 라인 수와 길이 (더 크고 명확하게)
-        const lineCount = intensity === 1 ? 8 : intensity === 2 ? 10 : 16
-        const maxLineLength = intensity === 1 ? 35 : intensity === 2 ? 50 : 70
-        const lineThickness = intensity === 1 ? 4 : intensity === 2 ? 6 : 8
-        
-        // 임팩트 라인 색상 설정 (화이트로 고정)
-        const impactLineColor = 0xffffff  // 흰색 라인
-        
-        // 방사형 라인 애니메이션
-        let progress = 0
-        this.tweens.add({
-          targets: { value: 0 },
-          value: 1,
-          duration: 500,
-          ease: 'Power2',
-          onUpdate: (tween) => {
-            const tweenProgress = tween.getValue()
-            progress = tweenProgress !== null ? tweenProgress : 0
-            impactLines.clear()
-            
-            // 알파값을 천천히 감소 (더 오래 보이도록)
-            const currentAlpha = Math.max(0, 1 - progress * 1.2)
-            const currentLength = maxLineLength * Math.min(1, progress * 1.5)
-            
-            impactLines.lineStyle(lineThickness, impactLineColor, currentAlpha)
-            
-            // 각 라인을 방사형으로 그리기
-            for (let i = 0; i < lineCount; i++) {
-              const angle = (Math.PI * 2 * i) / lineCount
-              const startX = x + Math.cos(angle) * particleSize
-              const startY = y + Math.sin(angle) * particleSize
-              const endX = x + Math.cos(angle) * (particleSize + currentLength)
-              const endY = y + Math.sin(angle) * (particleSize + currentLength)
-              
-              impactLines.beginPath()
-              impactLines.moveTo(startX, startY)
-              impactLines.lineTo(endX, endY)
-              impactLines.strokePath()
-            }
-          },
-          onComplete: () => impactLines.destroy(),
-        })
-      }
-
-      // 가격 변동 텍스트 애니메이션
+      // Price change text
       const change = candle.close - candle.open
-      const changeText = this.add.text(x, y - 30, 
+      const changeText = this.add.text(
+        x,
+        y - 20,
         `${change > 0 ? '+' : ''}$${change.toFixed(2)}`,
         {
-          fontSize: intensity === 1 ? '16px' : intensity === 2 ? '20px' : '24px',
-          color: isUp ? '#0088ff' : '#ff8800',
+          fontSize: intensity === 1 ? '12px' : intensity === 2 ? '14px' : '16px',
+          color: isUp ? '#22c55e' : '#ef4444',
           fontStyle: 'bold',
           stroke: '#000000',
           strokeThickness: 2,
         }
       )
-      changeText.setOrigin(0.5, 1) // 텍스트 중앙 정렬
+      changeText.setOrigin(0.5, 1)
 
       this.tweens.add({
         targets: changeText,
-        y: y - 80,
+        y: y - 50,
         alpha: 0,
-        duration: 1000,
+        duration: 800,
         onComplete: () => changeText.destroy(),
       })
     } catch (error) {
-      // 효과 실패 시 무시
+      // Effect failure ignored
     }
   }
 
   private renderChart() {
-    // Scene의 add 시스템만 체크 (가장 안전한 방법)
-    if (!this.add) {
-      console.warn('Scene not ready for rendering')
-      return
-    }
-    
-    try {
-      // 기존 그래픽 삭제
-      this.candleGraphics.forEach(g => {
-        try {
-          if (g && g.scene) {
-            g.destroy()
-          }
-        } catch (e) {
-          // 이미 파괴된 객체는 무시
-        }
-      })
-      this.volumeGraphics.forEach(g => {
-        try {
-          if (g && g.scene) {
-            g.destroy()
-          }
-        } catch (e) {
-          // 이미 파괴된 객체는 무시
-        }
-      })
-      this.candleGraphics = []
-      this.volumeGraphics = []
+    if (!this.add) return
 
-      if (this.areaFillGraphics) {
-        try {
-          this.areaFillGraphics.destroy()
-        } catch (e) {
-          // 이미 파괴된 객체는 무시
-        }
-        this.areaFillGraphics = null
-      }
+    try {
+      // Clear all graphics
+      this.gridGraphics?.clear()
+      this.candleGraphics?.clear()
+      this.volumeGraphics?.clear()
+      this.priceLineGraphics?.clear()
+
+      // Clear price labels
+      this.priceLabels.forEach(label => label.destroy())
+      this.priceLabels = []
+      this.currentPriceLabel?.destroy()
+      this.currentPriceLabel = null
 
       if (this.markerCircle) {
-        try {
-          this.markerCircle.destroy()
-        } catch (e) {
-          // 이미 파괴된 객체는 무시
-        }
+        this.markerCircle.destroy()
         this.markerCircle = null
       }
-    } catch (error) {
-      console.error('Error cleaning up graphics:', error)
-      // 에러가 나도 계속 진행
-      this.candleGraphics = []
-      this.volumeGraphics = []
-      this.areaFillGraphics = null
-    }
 
-    try {
-      const visibleCandles = this.candles.slice(-this.visibleCandleCount)
+      // Calculate visible range based on zoom and pan
+      const effectiveCount = Math.floor(this.visibleCandleCount / this.zoomLevel)
+      const panCandles = Math.floor(this.panOffset / (15 * this.zoomLevel))
+      const startIndex = Math.max(0, this.candles.length - effectiveCount - panCandles)
+      const endIndex = Math.min(this.candles.length, startIndex + effectiveCount)
       
-      if (visibleCandles.length === 0) {
-        console.warn('No visible candles to render')
-        return
-      }
+      const visibleCandles = this.candles.slice(startIndex, endIndex)
 
-      // 가격 범위 계산
+      if (visibleCandles.length === 0) return
+
+      // Calculate price range with autoscale
       const prices = visibleCandles.flatMap(c => [c.high, c.low])
-      const minPrice = Math.min(...prices)
-      const maxPrice = Math.max(...prices)
+      if (this.targetPrice) prices.push(this.targetPrice)
+      if (this.resistancePrice) prices.push(this.resistancePrice)
+      
+      let minPrice = Math.min(...prices)
+      let maxPrice = Math.max(...prices)
+      
+      // Add padding to price range
+      const pricePadding = (maxPrice - minPrice) * 0.1
+      minPrice -= pricePadding
+      maxPrice += pricePadding
       const priceRange = maxPrice - minPrice || 1
 
-      // 볼륨 범위 계산
+      // Calculate volume range
       const maxVolume = Math.max(...visibleCandles.map(c => c.volume))
 
-      // 차트 타입에 따라 렌더링
+      // Draw grid
+      this.drawGrid(minPrice, maxPrice, priceRange)
+
+      // Draw chart based on type
       switch (this.chartType) {
         case 'candle':
-          this.renderCandlestickChart(visibleCandles, minPrice, priceRange, maxVolume)
+          this.renderCandlestickChart(visibleCandles, minPrice, maxPrice, priceRange, maxVolume)
           break
         case 'area':
-          this.renderAreaChart(visibleCandles, minPrice, priceRange, maxVolume)
+          this.renderAreaChart(visibleCandles, minPrice, maxPrice, priceRange, maxVolume)
           break
         case 'line':
-          this.renderLineChart(visibleCandles, minPrice, priceRange, maxVolume)
+          this.renderLineChart(visibleCandles, minPrice, maxPrice, priceRange, maxVolume)
           break
       }
 
-      // 현재 가격 라벨 업데이트
-      if (this.priceLabel && visibleCandles.length > 0) {
-        const lastCandle = visibleCandles[visibleCandles.length - 1]
-        const change = lastCandle.close - lastCandle.open
-        const changePercent = ((change / lastCandle.open) * 100).toFixed(2)
-        this.priceLabel.setText(
-          `$${lastCandle.close.toLocaleString()}\n${change >= 0 ? '+' : ''}${changePercent}%`
-        )
-        this.priceLabel.setColor(change >= 0 ? '#00ff00' : '#ff0000')
+      // Draw current price line
+      this.drawCurrentPriceLine(visibleCandles, minPrice, priceRange)
+
+      // Draw target/resistance lines if set
+      if (this.targetPrice) {
+        this.drawHorizontalLine(this.targetPrice, minPrice, priceRange, 0x22c55e, 'Target')
+      }
+      if (this.resistancePrice) {
+        this.drawHorizontalLine(this.resistancePrice, minPrice, priceRange, 0xef4444, 'Resistance')
       }
     } catch (error) {
       console.error('Error rendering chart:', error)
-      return
     }
+  }
+
+  private drawGrid(minPrice: number, maxPrice: number, priceRange: number) {
+    if (!this.gridGraphics) return
+
+    const graphics = this.gridGraphics
+    graphics.lineStyle(1, this.GRID_COLOR, 0.3)
+
+    const startX = this.chartPadding.left
+    const endX = this.chartPadding.left + this.chartWidth
+    const startY = this.chartPadding.top
+    const endY = this.chartPadding.top + this.chartHeight
+
+    // Horizontal grid lines (price levels)
+    const priceSteps = 5
+    for (let i = 0; i <= priceSteps; i++) {
+      const y = startY + (this.chartHeight / priceSteps) * i
+      graphics.beginPath()
+      graphics.moveTo(startX, y)
+      graphics.lineTo(endX, y)
+      graphics.strokePath()
+
+      // Price label on right side
+      const price = maxPrice - (priceRange / priceSteps) * i
+      const label = this.add.text(
+        endX + 5,
+        y,
+        `$${price.toFixed(2)}`,
+        {
+          fontSize: '11px',
+          color: '#94a3b8',
+        }
+      )
+      label.setOrigin(0, 0.5)
+      this.priceLabels.push(label)
+    }
+
+    // Vertical grid lines (time)
+    const timeSteps = 5
+    for (let i = 0; i <= timeSteps; i++) {
+      const x = startX + (this.chartWidth / timeSteps) * i
+      graphics.beginPath()
+      graphics.moveTo(x, startY)
+      graphics.lineTo(x, endY + this.volumeHeight)
+      graphics.strokePath()
+    }
+  }
+
+  private drawCurrentPriceLine(candles: CandleData[], minPrice: number, priceRange: number) {
+    if (!this.priceLineGraphics || candles.length === 0) return
+
+    const lastCandle = candles[candles.length - 1]
+    const currentPrice = lastCandle.close
+    const y = this.chartPadding.top + ((priceRange - (currentPrice - minPrice)) / priceRange) * this.chartHeight
+
+    const graphics = this.priceLineGraphics
+    graphics.lineStyle(2, this.PRICE_LINE_COLOR, 0.8)
+
+    // Draw dashed line
+    const startX = this.chartPadding.left
+    const endX = this.chartPadding.left + this.chartWidth
+    const dashLength = 8
+    const gapLength = 4
+
+    let x = startX
+    while (x < endX) {
+      graphics.beginPath()
+      graphics.moveTo(x, y)
+      graphics.lineTo(Math.min(x + dashLength, endX), y)
+      graphics.strokePath()
+      x += dashLength + gapLength
+    }
+
+    // Current price label
+    const isUp = lastCandle.close >= lastCandle.open
+    this.currentPriceLabel = this.add.text(
+      endX + 5,
+      y,
+      `$${currentPrice.toFixed(2)}`,
+      {
+        fontSize: '12px',
+        color: '#000000',
+        backgroundColor: isUp ? '#22c55e' : '#ef4444',
+        padding: { x: 4, y: 2 },
+        fontStyle: 'bold',
+      }
+    )
+    this.currentPriceLabel.setOrigin(0, 0.5)
+  }
+
+  private drawHorizontalLine(price: number, minPrice: number, priceRange: number, color: number, label: string) {
+    if (!this.priceLineGraphics) return
+
+    const y = this.chartPadding.top + ((priceRange - (price - minPrice)) / priceRange) * this.chartHeight
+
+    const graphics = this.priceLineGraphics
+    graphics.lineStyle(1, color, 0.5)
+
+    const startX = this.chartPadding.left
+    const endX = this.chartPadding.left + this.chartWidth
+    const dashLength = 5
+    const gapLength = 3
+
+    let x = startX
+    while (x < endX) {
+      graphics.beginPath()
+      graphics.moveTo(x, y)
+      graphics.lineTo(Math.min(x + dashLength, endX), y)
+      graphics.strokePath()
+      x += dashLength + gapLength
+    }
+
+    // Label
+    const priceLabel = this.add.text(
+      endX + 5,
+      y,
+      `${label}: $${price.toFixed(2)}`,
+      {
+        fontSize: '10px',
+        color: color === 0x22c55e ? '#22c55e' : '#ef4444',
+      }
+    )
+    priceLabel.setOrigin(0, 0.5)
+    this.priceLabels.push(priceLabel)
   }
 
   private renderCandlestickChart(
     candles: CandleData[],
     minPrice: number,
+    maxPrice: number,
     priceRange: number,
     maxVolume: number
   ) {
-    if (candles.length === 0) return
-    
-    // Scene의 add 시스템이 초기화되었는지 확인
-    if (!this.add) {
-      console.warn('Scene add system not initialized')
-      return
-    }
-    
-    try {
-    
-    // 전체 화면을 채우도록 동적으로 캔들 너비 계산
-    const availableWidth = this.chartWidth - 20 // 좌우 패딩
-    const dynamicCandleWidth = Math.max(1, Math.floor((availableWidth / candles.length) * 0.7))
-    const dynamicCandleGap = Math.max(0, Math.floor((availableWidth / candles.length) * 0.3))
-    const startX = 10 // 왼쪽 패딩
-    
-    // maxPrice 계산
-    const prices = candles.flatMap(c => [c.high, c.low])
-    const maxPrice = Math.max(...prices)
+    if (candles.length === 0 || !this.candleGraphics || !this.volumeGraphics) return
+
+    const graphics = this.candleGraphics
+    const volumeGfx = this.volumeGraphics
+
+    // Calculate candle dimensions
+    const availableWidth = this.chartWidth
+    const candleWidth = Math.max(2, (availableWidth / candles.length) * 0.7 * this.zoomLevel)
+    const candleGap = Math.max(1, (availableWidth / candles.length) * 0.3 * this.zoomLevel)
+    const startX = this.chartPadding.left
 
     candles.forEach((candle, index) => {
-      try {
-      const x = startX + index * (dynamicCandleWidth + dynamicCandleGap)
+      const x = startX + index * (candleWidth + candleGap)
       const isUp = candle.close >= candle.open
+      const color = isUp ? this.BULL_COLOR : this.BEAR_COLOR
 
-      // 캔들 Y 좌표 계산
-      const highY = ((maxPrice - candle.high) / priceRange) * this.chartHeight
-      const lowY = ((maxPrice - candle.low) / priceRange) * this.chartHeight
-      const openY = ((maxPrice - candle.open) / priceRange) * this.chartHeight
-      const closeY = ((maxPrice - candle.close) / priceRange) * this.chartHeight
+      // Y coordinates
+      const highY = this.chartPadding.top + ((maxPrice - candle.high) / priceRange) * this.chartHeight
+      const lowY = this.chartPadding.top + ((maxPrice - candle.low) / priceRange) * this.chartHeight
+      const openY = this.chartPadding.top + ((maxPrice - candle.open) / priceRange) * this.chartHeight
+      const closeY = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
 
       const bodyTop = Math.min(openY, closeY)
-      const bodyHeight = Math.abs(closeY - openY) || 1
+      const bodyHeight = Math.max(1, Math.abs(closeY - openY))
 
-      // 캔들 그리기
-      const graphics = this.add.graphics()
-      if (!graphics) return
-      
-      graphics.lineStyle(1, isUp ? 0x00ff88 : 0xff4444)
-      graphics.strokeLineShape(new Phaser.Geom.Line(
-        x + dynamicCandleWidth / 2, highY,
-        x + dynamicCandleWidth / 2, lowY
-      ))
+      // Draw wick (thin line from high to low)
+      graphics.lineStyle(1, color, 1)
+      graphics.beginPath()
+      graphics.moveTo(x + candleWidth / 2, highY)
+      graphics.lineTo(x + candleWidth / 2, lowY)
+      graphics.strokePath()
 
-      graphics.fillStyle(isUp ? 0x00ff88 : 0xff4444)
-      graphics.fillRect(x, bodyTop, dynamicCandleWidth, bodyHeight)
-
-      this.candleGraphics.push(graphics)
-
-      // 볼륨 바 그리기
-      const volumeHeight = (candle.volume / maxVolume) * this.volumeHeight
-      const volumeY = this.chartHeight + 20
-
-      const volumeGraphics = this.add.graphics()
-      if (!volumeGraphics) return
-      
-      volumeGraphics.fillStyle(isUp ? 0x00ff8844 : 0xff444444, 0.5)
-      volumeGraphics.fillRect(
-        x,
-        volumeY + (this.volumeHeight - volumeHeight),
-        dynamicCandleWidth,
-        volumeHeight
-      )
-
-      this.volumeGraphics.push(volumeGraphics)
-      } catch (error) {
-        console.error('Error rendering candle:', error)
+      // Draw body (filled rectangle)
+      if (isUp) {
+        // Hollow candle for up
+        graphics.lineStyle(1, color, 1)
+        graphics.strokeRect(x, bodyTop, candleWidth, bodyHeight)
+        graphics.fillStyle(0x0f172a, 1) // Dark fill for hollow
+        graphics.fillRect(x + 1, bodyTop + 1, candleWidth - 2, bodyHeight - 2)
+      } else {
+        // Filled candle for down
+        graphics.fillStyle(color, 1)
+        graphics.fillRect(x, bodyTop, candleWidth, bodyHeight)
       }
+
+      // Draw volume bar
+      const volumeBarHeight = (candle.volume / maxVolume) * this.volumeHeight
+      const volumeY = this.chartPadding.top + this.chartHeight + 10
+
+      volumeGfx.fillStyle(color, 0.3)
+      volumeGfx.fillRect(
+        x,
+        volumeY + (this.volumeHeight - volumeBarHeight),
+        candleWidth,
+        volumeBarHeight
+      )
     })
 
-    // 마지막 캔들의 마커 위치만 저장 (원은 그리지 않음)
+    // Store marker position for effects
     if (candles.length > 0) {
       const lastCandle = candles[candles.length - 1]
       const lastIndex = candles.length - 1
-      const x = startX + lastIndex * (dynamicCandleWidth + dynamicCandleGap) + dynamicCandleWidth / 2
-      const closeY = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
-      
-      // 마커 위치만 저장 (이펙트 발생 위치로 사용)
+      const x = startX + lastIndex * (candleWidth + candleGap) + candleWidth / 2
+      const closeY = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
+
       this.currentMarkerX = x
       this.currentMarkerY = closeY
-    }
-    } catch (error) {
-      console.error('Error in renderCandlestickChart:', error)
     }
   }
 
   private renderAreaChart(
     candles: CandleData[],
     minPrice: number,
+    maxPrice: number,
     priceRange: number,
     maxVolume: number
   ) {
-    if (candles.length === 0) return
-    
-    // Scene의 add 시스템이 초기화되었는지 확인
-    if (!this.add) {
-      console.warn('Scene add system not initialized')
-      return
-    }
-    
-    try {
-      const graphics = this.add.graphics()
-      if (!graphics) {
-        console.error('Failed to create graphics object')
-        return
+    if (candles.length === 0 || !this.candleGraphics || !this.volumeGraphics) return
+
+    const graphics = this.candleGraphics
+
+    const availableWidth = this.chartWidth
+    const pointSpacing = candles.length > 1 ? availableWidth / (candles.length - 1) : availableWidth
+    const startX = this.chartPadding.left
+
+    const isUp = candles[candles.length - 1].close >= candles[0].open
+    const lineColor = isUp ? this.BULL_COLOR : this.BEAR_COLOR
+
+    // Draw line
+    graphics.lineStyle(2, lineColor, 1)
+    graphics.beginPath()
+
+    candles.forEach((candle, index) => {
+      const x = startX + index * pointSpacing
+      const y = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
+
+      if (index === 0) {
+        graphics.moveTo(x, y)
+      } else {
+        graphics.lineTo(x, y)
       }
-      this.areaFillGraphics = graphics
+    })
+    graphics.strokePath()
 
-      // 전체 화면을 채우도록 동적으로 포인트 간격 계산
-      const availableWidth = this.chartWidth - 20
-      const pointSpacing = candles.length > 1 ? availableWidth / (candles.length - 1) : availableWidth
-      const startX = 10
-      
-      // maxPrice 계산
-      const prices = candles.flatMap(c => [c.high, c.low])
-      const maxPrice = Math.max(...prices)
+    // Draw filled area
+    graphics.fillStyle(lineColor, 0.15)
+    graphics.beginPath()
 
-      // 선 그리기
-      graphics.lineStyle(3, 0x00ff88, 1)
-      graphics.beginPath()
+    const chartBottom = this.chartPadding.top + this.chartHeight
 
-      const isUp = candles[candles.length - 1].close >= candles[0].open
-      const lineColor = isUp ? 0x00ff88 : 0xff4444
-      graphics.lineStyle(3, lineColor, 1)
+    candles.forEach((candle, index) => {
+      const x = startX + index * pointSpacing
+      const y = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
 
-      candles.forEach((candle, index) => {
-        const x = startX + index * pointSpacing
-        const y = ((maxPrice - candle.close) / priceRange) * this.chartHeight
-
-        if (index === 0) {
-          graphics.moveTo(x, y)
-        } else {
-          graphics.lineTo(x, y)
-        }
-      })
-      graphics.strokePath()
-
-      // 영역 채우기
-      graphics.fillStyle(isUp ? 0x00ff8844 : 0xff444444, 0.3)
-      graphics.beginPath()
-      
-      candles.forEach((candle, index) => {
-        const x = startX + index * pointSpacing
-        const y = ((maxPrice - candle.close) / priceRange) * this.chartHeight
-
-        if (index === 0) {
-          graphics.moveTo(x, this.chartHeight)
-          graphics.lineTo(x, y)
-        } else {
-          graphics.lineTo(x, y)
-        }
-      })
-      
-      graphics.lineTo(startX + (candles.length - 1) * pointSpacing, this.chartHeight)
-      graphics.closePath()
-      graphics.fillPath()
-
-      this.candleGraphics.push(graphics)
-
-      // 마지막 포인트에 원형 마커 추가
-      if (candles.length > 0) {
-        const lastCandle = candles[candles.length - 1]
-        const lastIndex = candles.length - 1
-        const x = startX + lastIndex * pointSpacing
-        const y = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
-        
-        // 마커 위치 저장
-        this.currentMarkerX = x
-        this.currentMarkerY = y
-        
-        // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
-        const markerGraphics = this.add.graphics()
-        if (markerGraphics) {
-          markerGraphics.fillStyle(lineColor, 1)
-          markerGraphics.fillCircle(x, y, 6)
-          this.markerCircle = markerGraphics
-        }
+      if (index === 0) {
+        graphics.moveTo(x, chartBottom)
+        graphics.lineTo(x, y)
+      } else {
+        graphics.lineTo(x, y)
       }
+    })
 
-      // 볼륨 바 그리기
-      this.renderVolumeBars(candles, maxVolume, startX, pointSpacing)
-    } catch (error) {
-      console.error('Error rendering area chart:', error)
+    graphics.lineTo(startX + (candles.length - 1) * pointSpacing, chartBottom)
+    graphics.closePath()
+    graphics.fillPath()
+
+    // Marker at last point
+    if (candles.length > 0) {
+      const lastCandle = candles[candles.length - 1]
+      const x = startX + (candles.length - 1) * pointSpacing
+      const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
+
+      this.currentMarkerX = x
+      this.currentMarkerY = y
+
+      this.markerCircle = this.add.graphics()
+      this.markerCircle.fillStyle(lineColor, 1)
+      this.markerCircle.fillCircle(x, y, 5)
     }
+
+    // Volume bars
+    this.renderVolumeBars(candles, maxVolume, startX, pointSpacing)
   }
 
   private renderLineChart(
     candles: CandleData[],
     minPrice: number,
+    maxPrice: number,
     priceRange: number,
     maxVolume: number
   ) {
-    if (candles.length === 0) return
-    
-    // Scene의 add 시스템이 초기화되었는지 확인
-    if (!this.add) {
-      console.warn('Scene add system not initialized')
-      return
-    }
-    
-    try {
-      const graphics = this.add.graphics()
-      if (!graphics) {
-        console.error('Failed to create graphics object')
-        return
+    if (candles.length === 0 || !this.candleGraphics) return
+
+    const graphics = this.candleGraphics
+
+    const availableWidth = this.chartWidth
+    const pointSpacing = candles.length > 1 ? availableWidth / (candles.length - 1) : availableWidth
+    const startX = this.chartPadding.left
+
+    const isUp = candles[candles.length - 1].close >= candles[0].open
+    const lineColor = isUp ? this.BULL_COLOR : this.BEAR_COLOR
+
+    graphics.lineStyle(2, lineColor, 1)
+    graphics.beginPath()
+
+    candles.forEach((candle, index) => {
+      const x = startX + index * pointSpacing
+      const y = this.chartPadding.top + ((maxPrice - candle.close) / priceRange) * this.chartHeight
+
+      if (index === 0) {
+        graphics.moveTo(x, y)
+      } else {
+        graphics.lineTo(x, y)
       }
-      this.areaFillGraphics = graphics
+    })
+    graphics.strokePath()
 
-      // 전체 화면을 채우도록 동적으로 포인트 간격 계산
-      const availableWidth = this.chartWidth - 20
-      const pointSpacing = candles.length > 1 ? availableWidth / (candles.length - 1) : availableWidth
-      const startX = 10
-      
-      // maxPrice 계산
-      const prices = candles.flatMap(c => [c.high, c.low])
-      const maxPrice = Math.max(...prices)
+    // Marker at last point
+    if (candles.length > 0) {
+      const lastCandle = candles[candles.length - 1]
+      const x = startX + (candles.length - 1) * pointSpacing
+      const y = this.chartPadding.top + ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
 
-      const isUp = candles[candles.length - 1].close >= candles[0].open
-      const lineColor = isUp ? 0x00ff88 : 0xff4444
+      this.currentMarkerX = x
+      this.currentMarkerY = y
 
-      graphics.lineStyle(3, lineColor, 1)
-      graphics.beginPath()
-
-      candles.forEach((candle, index) => {
-        const x = startX + index * pointSpacing
-        const y = ((maxPrice - candle.close) / priceRange) * this.chartHeight
-
-        if (index === 0) {
-          graphics.moveTo(x, y)
-        } else {
-          graphics.lineTo(x, y)
-        }
-      })
-      graphics.strokePath()
-
-      this.candleGraphics.push(graphics)
-
-      // 마지막 포인트에 원형 마커 추가
-      if (candles.length > 0) {
-        const lastCandle = candles[candles.length - 1]
-        const lastIndex = candles.length - 1
-        const x = startX + lastIndex * pointSpacing
-        const y = ((maxPrice - lastCandle.close) / priceRange) * this.chartHeight
-        
-        // 마커 위치 저장
-        this.currentMarkerX = x
-        this.currentMarkerY = y
-        
-        // 원형 마커 그리기 (선 두께 3px의 4배 = 12px 반지름)
-        const markerGraphics = this.add.graphics()
-        if (markerGraphics) {
-          markerGraphics.fillStyle(lineColor, 1)
-          markerGraphics.fillCircle(x, y, 6)
-          this.markerCircle = markerGraphics
-        }
-      }
-
-      // 볼륨 바 그리기
-      this.renderVolumeBars(candles, maxVolume, startX, pointSpacing)
-    } catch (error) {
-      console.error('Error rendering line chart:', error)
+      this.markerCircle = this.add.graphics()
+      this.markerCircle.fillStyle(lineColor, 1)
+      this.markerCircle.fillCircle(x, y, 5)
     }
+
+    // Volume bars
+    this.renderVolumeBars(candles, maxVolume, startX, pointSpacing)
   }
 
-  private renderVolumeBars(candles: CandleData[], maxVolume: number, startX: number, spacing?: number) {
-    if (candles.length === 0) return
-    
-    // Scene의 add 시스템이 초기화되었는지 확인
-    if (!this.add) {
-      console.warn('Scene add system not initialized')
-      return
-    }
-    
-    try {
-      const availableWidth = this.chartWidth - 20
-      const barWidth = spacing ? Math.max(1, spacing * 0.7) : Math.max(1, Math.floor((availableWidth / candles.length) * 0.7))
-      
-      candles.forEach((candle, index) => {
-        try {
-          const x = spacing 
-            ? startX + index * spacing - barWidth / 2
-            : startX + index * (barWidth + Math.floor((availableWidth / candles.length) * 0.3))
-            
-          const volumeHeight = (candle.volume / maxVolume) * this.volumeHeight
-          const volumeY = this.chartHeight + 20
+  private renderVolumeBars(candles: CandleData[], maxVolume: number, startX: number, spacing: number) {
+    if (!this.volumeGraphics) return
 
-          const volumeGraphics = this.add.graphics()
-          if (!volumeGraphics) return
-          
-          const isUp = index > 0 ? candle.close >= candles[index - 1].close : true
-          volumeGraphics.fillStyle(isUp ? 0x00ff8844 : 0xff444444, 0.5)
-          volumeGraphics.fillRect(
-            x,
-            volumeY + (this.volumeHeight - volumeHeight),
-            barWidth,
-            volumeHeight
-          )
+    const volumeGfx = this.volumeGraphics
+    const barWidth = Math.max(2, spacing * 0.7)
 
-          this.volumeGraphics.push(volumeGraphics)
-        } catch (error) {
-          console.error('Error rendering volume bar:', error)
-        }
-      })
-    } catch (error) {
-      console.error('Error in renderVolumeBars:', error)
-    }
+    candles.forEach((candle, index) => {
+      const x = startX + index * spacing - barWidth / 2
+      const volumeHeight = (candle.volume / maxVolume) * this.volumeHeight
+      const volumeY = this.chartPadding.top + this.chartHeight + 10
+
+      const isUp = index > 0 ? candle.close >= candles[index - 1].close : true
+      volumeGfx.fillStyle(isUp ? this.BULL_COLOR : this.BEAR_COLOR, 0.3)
+      volumeGfx.fillRect(
+        x,
+        volumeY + (this.volumeHeight - volumeHeight),
+        barWidth,
+        volumeHeight
+      )
+    })
   }
 
   private changeChartType(type: 'candle' | 'area' | 'line') {
-    console.log(`Changing chart type to: ${type}`)
-    try {
-      this.chartType = type
-      this.renderChart()
-    } catch (error) {
-      console.error('Error changing chart type:', error)
-    }
+    this.chartType = type
+    this.renderChart()
   }
 
   private changeSpeed(multiplier: number) {
-    try {
-      this.speedMultiplier = multiplier
-      this.startCandleGeneration()
-    } catch (error) {
-      console.error('Error changing speed:', error)
-    }
+    this.speedMultiplier = multiplier
+    this.startCandleGeneration()
   }
 
   private changeCandleCount(count: number) {
-    console.log(`BattleScene: changeCandleCount called with count: ${count}`)
-    console.log(`Current candles length: ${this.candles.length}`)
-    
-    try {
-      this.visibleCandleCount = count
-    
-    // 현재 캔들이 부족하면 추가 생성
+    this.visibleCandleCount = count
+
     while (this.candles.length < count) {
       const lastCandle = this.candles[this.candles.length - 1] || {
-        open: 125000,
-        close: 125000,
-        high: 127000,
-        low: 123000,
-        volume: 25000,
-        id: 'initial'
+        open: 175,
+        close: 175,
+        high: 176,
+        low: 174,
+        volume: 500000,
+        id: 'initial',
       }
-      
-      const volatility = (Math.random() - 0.5) * 4000
+
+      const volatility = (Math.random() - 0.5) * 2
       const open = lastCandle.close
       const close = open + volatility
-      const high = Math.max(open, close) + Math.random() * 2000
-      const low = Math.min(open, close) - Math.random() * 2000
 
       this.candles.push({
         id: `candle-${Date.now()}-${Math.random()}`,
-        open,
-        close,
-        high,
-        low,
-        volume: Math.random() * 50000,
+        open: parseFloat(open.toFixed(2)),
+        close: parseFloat(close.toFixed(2)),
+        high: parseFloat(Math.max(open, close + Math.random()).toFixed(2)),
+        low: parseFloat(Math.min(open, close - Math.random()).toFixed(2)),
+        volume: Math.random() * 1000000 + 100000,
       })
     }
-    
-      console.log(`After generation, candles length: ${this.candles.length}`)
-      console.log(`Visible candle count set to: ${this.visibleCandleCount}`)
-      
-      this.renderChart()
-      console.log('renderChart completed successfully')
-    } catch (error) {
-      console.error('Error in changeCandleCount:', error)
-    }
+
+    this.renderChart()
   }
 
-  private onAttackEnemy(enemyId: string) {
-    // Scene이 초기화되지 않았으면 효과를 건너뜀
-    if (!this.add || !this.tweens) {
-      return
-    }
-    
+  private onAttackEnemy(_enemyId: string) {
+    if (!this.add || !this.tweens) return
+
     try {
-      // 공격 효과 애니메이션
       const x = Phaser.Math.Between(100, this.chartWidth - 100)
       const y = Phaser.Math.Between(50, this.chartHeight / 2)
 
       if (this.particles) {
         try {
-          const emitter = this.particles as any
+          const emitter = this.particles as Phaser.GameObjects.Particles.ParticleEmitter
           if (emitter.explode) {
             emitter.explode(20, x, y)
-          } else if (emitter.emitParticleAt) {
-            for (let i = 0; i < 20; i++) {
-              emitter.emitParticleAt(x, y)
-            }
           }
         } catch (e) {
-          // 파티클 실패 시 무시
+          // Ignore particle failure
         }
       }
 
-      // 임팩트 이펙트
-      const impact = this.add.circle(x, y, 5, 0xffff00)
+      const impact = this.add.circle(x, y, 5, 0xfbbf24)
       this.tweens.add({
         targets: impact,
         radius: 30,
@@ -862,21 +864,21 @@ export default class BattleScene extends Phaser.Scene {
         onComplete: () => impact.destroy(),
       })
     } catch (error) {
-      // 효과 실패 시 무시
+      // Ignore effect failure
     }
   }
 
   update() {
-    // 매 프레임 업데이트 로직 (필요시)
+    // Per-frame update logic if needed
   }
 
   shutdown() {
-    // Scene 종료 시 이벤트 리스너 제거
     eventBus.off(EVENTS.NEW_CANDLE, this.addNewCandle.bind(this))
     eventBus.off(EVENTS.CHANGE_CHART_TYPE, this.changeChartType.bind(this))
     eventBus.off(EVENTS.CHANGE_SPEED, this.changeSpeed.bind(this))
     eventBus.off(EVENTS.CHANGE_CANDLE_COUNT, this.changeCandleCount.bind(this))
     eventBus.off(EVENTS.ATTACK_ENEMY, this.onAttackEnemy.bind(this))
+    eventBus.off(EVENTS.UPDATE_MARKET_DATA, this.updateMarketData.bind(this))
 
     if (this.animationTimer) {
       this.animationTimer.destroy()
