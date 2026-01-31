@@ -1,5 +1,6 @@
 'use client'
 
+import { Play, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ChartType, CandleCount, SpeedMultiplier, GameState } from '../types'
@@ -74,32 +75,53 @@ export function ChartControls({
     return 'bg-green-500 hover:bg-green-600'
   }
 
+  const secondaryBtnClass = 'h-8 sm:h-9 min-w-[4.5rem] sm:min-w-[5.25rem] px-3 text-xs sm:text-sm font-medium text-white border-0 shrink-0'
+
   return (
     <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto pb-1 scrollbar-thin">
+      {/* 메인 게임: Start 버튼 — 2배 너비, 20% 큰 글자, 플레이/정지 아이콘, 검정 볼드 */}
       <Button
         variant="default"
         size="sm"
         onClick={onStartStop}
         disabled={gameState === 'LOADING'}
-        className={cn("h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm font-medium text-white border-0 shrink-0", getStartStopColor())}
+        className={cn(
+          'h-8 sm:h-9 min-w-[7rem] sm:min-w-[8.5rem] px-5 sm:px-6 text-sm sm:text-base font-bold text-black border-0 shrink-0 flex items-center justify-center gap-1.5',
+          getStartStopColor()
+        )}
       >
+        {gameState === 'PLAYING' ? (
+          <Square className="h-4 w-4 shrink-0 fill-current" />
+        ) : (
+          <Play className="h-4 w-4 shrink-0 fill-current" />
+        )}
         {getStartStopLabel()}
       </Button>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-xs text-orange-500 font-medium hidden sm:inline">차트타입</span>
-        <Button variant="default" size="sm" onClick={cycleChartType} className="h-8 sm:h-9 px-3 text-xs sm:text-sm font-medium bg-orange-500 hover:bg-orange-600 text-white border-0 shrink-0">
+
+      {/* 오른쪽 정렬: Candle / 20x / x1 — 동일 너비 (Candle 기준) */}
+      <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={cycleChartType}
+          className={cn(secondaryBtnClass, 'bg-orange-500 hover:bg-orange-600')}
+        >
           {getChartTypeLabel(chartType)}
         </Button>
-      </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-xs text-purple-500 font-medium hidden sm:inline">캔들개수</span>
-        <Button variant="default" size="sm" onClick={cycleCandleCount} className="h-8 sm:h-9 px-3 text-xs sm:text-sm font-medium bg-purple-500 hover:bg-purple-600 text-white border-0 shrink-0">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={cycleCandleCount}
+          className={cn(secondaryBtnClass, 'bg-purple-500 hover:bg-purple-600')}
+        >
           {candleCount}x
         </Button>
-      </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-xs text-blue-500 font-medium hidden sm:inline">속도</span>
-        <Button variant="default" size="sm" onClick={cycleSpeed} className="h-8 sm:h-9 px-3 text-xs sm:text-sm font-medium bg-blue-500 hover:bg-blue-600 text-white border-0 shrink-0">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={cycleSpeed}
+          className={cn(secondaryBtnClass, 'bg-blue-500 hover:bg-blue-600')}
+        >
           x{speedMultiplier}
         </Button>
       </div>
