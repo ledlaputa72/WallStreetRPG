@@ -754,21 +754,16 @@ export default class BattleScene extends Phaser.Scene {
       const bodyTop = Math.min(openY, closeY)
       const bodyHeight = Math.max(1, Math.abs(closeY - openY))
 
+      // Wick (single path)
       graphics.lineStyle(1, color, 1)
       graphics.beginPath()
       graphics.moveTo(x + candleWidth / 2, highY)
       graphics.lineTo(x + candleWidth / 2, lowY)
       graphics.strokePath()
 
-      if (isUp) {
-        graphics.lineStyle(1, color, 1)
-        graphics.strokeRect(x, bodyTop, candleWidth, bodyHeight)
-        graphics.fillStyle(0x0f172a, 1)
-        graphics.fillRect(x + 1, bodyTop + 1, candleWidth - 2, bodyHeight - 2)
-      } else {
-        graphics.fillStyle(color, 1)
-        graphics.fillRect(x, bodyTop, candleWidth, bodyHeight)
-      }
+      // Body: single fillRect only to avoid double-draw (strokeRect + fillRect caused shadowing)
+      graphics.fillStyle(color, 1)
+      graphics.fillRect(x, bodyTop, candleWidth, bodyHeight)
 
       const volumeBarHeight = (candle.volume / maxVolume) * this.volumeHeight
       const volumeY = this.chartPadding.top + this.chartHeight + 10
