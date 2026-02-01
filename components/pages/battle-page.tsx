@@ -104,6 +104,7 @@ export function BattlePage() {
   const speedMultiplierRef = useRef<SpeedMultiplier>(speedMultiplier)
   const openedQuarterlyDraftsRef = useRef<Set<number>>(new Set())
   const isOpeningQuarterlyDraftRef = useRef<boolean>(false)
+  const gamePhaseRef = useRef<GamePhase>('start')
 
   useEffect(() => {
     speedMultiplierRef.current = speedMultiplier
@@ -240,6 +241,7 @@ export function BattlePage() {
     }
 
     setGamePhase('playing')
+    gamePhaseRef.current = 'playing'
     setChartMode('portfolio')
     useGameStore.setState({ isPlaying: true, currentDayIndex: 0 })
     
@@ -303,6 +305,11 @@ export function BattlePage() {
     await startSimulation()
   }, [selectedCardIds, draftCards, cardPrices, selectedYear, aum, addToPortfolio, startSimulation])
 
+  // Update gamePhase ref whenever gamePhase changes
+  useEffect(() => {
+    gamePhaseRef.current = gamePhase
+  }, [gamePhase])
+
   // Game loop - increment day and update prices
   useEffect(() => {
     if (gamePhase !== 'playing' || !isPlaying) {
@@ -314,6 +321,12 @@ export function BattlePage() {
     }
 
     const tick = () => {
+      // Check current game phase from ref (always up-to-date)
+      // Also check if quarterly draft is being opened to prevent duplicates
+      if (gamePhaseRef.current !== 'playing' || isOpeningQuarterlyDraftRef.current) {
+        return
+      }
+
       const currentDay = useGameStore.getState().currentDayIndex
 
       if (currentDay >= 252) {
@@ -332,7 +345,7 @@ export function BattlePage() {
       if (
         (currentDay === 63 || currentDay === 126 || currentDay === 189) &&
         !openedQuarterlyDraftsRef.current.has(currentDay) &&
-        gamePhase !== 'quarterly-draft' &&
+        gamePhaseRef.current !== 'quarterly-draft' &&
         !isOpeningQuarterlyDraftRef.current
       ) {
         // Set flag to prevent duplicate openings
@@ -379,6 +392,8 @@ export function BattlePage() {
           setCardPrices(priceMap)
         })()
         
+        // Update ref immediately before state update
+        gamePhaseRef.current = 'quarterly-draft'
         setGamePhase('quarterly-draft')
         return
       }
@@ -633,6 +648,7 @@ export function BattlePage() {
     // Resume simulation after selection
     setTimeout(() => {
       isOpeningQuarterlyDraftRef.current = false
+      gamePhaseRef.current = 'playing'
       setGamePhase('playing')
       useGameStore.setState({ isPlaying: true })
     }, 500)
