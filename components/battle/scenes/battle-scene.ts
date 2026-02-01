@@ -79,11 +79,19 @@ export default class BattleScene extends Phaser.Scene {
   private historicalQueue: CandleData[] = []
   private isPlayingHistorical: boolean = false
 
+  // Portfolio and S&P 500 comparison
+  private sp500Data: Array<{ day: number; price: number }> = []
+  private portfolioData: Array<{ day: number; price: number }> = []
+  private comparisonGraphics: Phaser.GameObjects.Graphics | null = null
+  private auraEffect: Phaser.GameObjects.Graphics | null = null
+
   // Colors
   private readonly BULL_COLOR = 0x22c55e // Green for up
   private readonly BEAR_COLOR = 0xef4444 // Red for down
   private readonly GRID_COLOR = 0x334155
   private readonly PRICE_LINE_COLOR = 0xfbbf24 // Amber for current price
+  private readonly SP500_COLOR = 0x94a3b8 // Gray for S&P 500
+  private readonly PORTFOLIO_COLOR = 0xfbbf24 // Gold for portfolio
 
   constructor() {
     super('BattleScene')
@@ -112,9 +120,11 @@ export default class BattleScene extends Phaser.Scene {
 
     // Initialize graphics layers (order matters for rendering)
     this.gridGraphics = this.add.graphics()
+    this.comparisonGraphics = this.add.graphics()
     this.volumeGraphics = this.add.graphics()
     this.candleGraphics = this.add.graphics()
     this.priceLineGraphics = this.add.graphics()
+    this.auraEffect = this.add.graphics()
 
     // Initialize candles
     this.initializeCandles()
@@ -318,14 +328,26 @@ export default class BattleScene extends Phaser.Scene {
 
     // Replace candles only when new bulk data is sent (e.g. autoFetch mode). Battle page uses NEW_CANDLE only.
     if (data.candles && data.candles.length > 0) {
-      this.candles = []
-      this.historicalQueue = data.candles.map((c, i) => ({
+      // For battle mode: directly set candles without historical playback
+      // This allows the chart to show current state without restarting
+      this.candles = data.candles.map((c, i) => ({
         ...c,
         id: c.id || `api-candle-${i}`,
       }))
-      this.isPlayingHistorical = true
-      if (this.historicalQueue.length > 0) {
-        this.currentPrice = this.historicalQueue[0].open
+      this.historicalQueue = []
+      this.isPlayingHistorical = false
+      
+      // Set current price to last candle's close
+      if (this.candles.length > 0) {
+        const lastCandle = this.candles[this.candles.length - 1]
+        this.currentPrice = lastCandle.close
+        this.currentMarkerX = this.chartPadding.left + (this.visibleCandleCount - 1) * this.gridWidth()
+        this.currentMarkerY = 0 // Will be calculated in renderChart
+      }
+      
+      // Render immediately
+      if (this.add && this.gridGraphics) {
+        this.renderChart()
       }
     }
   }
@@ -501,9 +523,11 @@ export default class BattleScene extends Phaser.Scene {
     try {
       // Clear all graphics
       this.gridGraphics.clear()
+      if (this.comparisonGraphics) this.comparisonGraphics.clear()
       this.candleGraphics.clear()
       this.volumeGraphics.clear()
       this.priceLineGraphics.clear()
+      if (this.auraEffect) this.auraEffect.clear()
 
       // Safely clear price labels
       this.priceLabels.forEach(label => {
@@ -584,8 +608,153 @@ export default class BattleScene extends Phaser.Scene {
       if (this.resistancePrice) {
         this.drawHorizontalLine(this.resistancePrice, minPrice, maxPrice, priceRange, 0xef4444, 'Resistance')
       }
+
+      // Draw S&P 500 and Portfolio comparison lines
+      this.drawComparisonLines(visibleCandles, minPrice, maxPrice, priceRange)
     } catch (error) {
       console.error('Error rendering chart:', error)
+    }
+  }
+
+  // Public method to update S&P 500 data
+  public updateSP500Data(data: Array<{ day: number; price: number }>) {
+    this.sp500Data = data
+    if (this.add && this.gridGraphics) {
+      this.renderChart()
+    }
+  }
+
+  // Public method to update portfolio data
+  public updatePortfolioData(data: Array<{ day: number; price: number }>) {
+    this.portfolioData = data
+    if (this.add && this.gridGraphics) {
+      this.renderChart()
+    }
+  }
+
+  private drawComparisonLines(
+    visibleCandles: CandleData[],
+    minPrice: number,
+    maxPrice: number,
+    priceRange: number
+  ) {
+    if (!this.comparisonGraphics || !this.add) return
+
+    const gw = this.gridWidth()
+    const startX = this.chartPadding.left
+    const visibleLength = visibleCandles.length
+
+    // Draw S&P 500 line (gray)
+    if (this.sp500Data.length > 0) {
+      // Only draw S&P500 data up to visible length (current day)
+      const sp500VisibleData = this.sp500Data.slice(0, visibleLength)
+      
+      if (sp500VisibleData.length > 0) {
+        this.comparisonGraphics.lineStyle(2, this.SP500_COLOR, 0.7)
+        this.comparisonGraphics.beginPath()
+
+        sp500VisibleData.forEach((point, index) => {
+          const slotIndex = this.candleSlotIndex(visibleLength, index)
+          const x = startX + (slotIndex + 0.5) * gw - this.scrollOffsetX
+          const y = this.priceToY(point.price, minPrice, maxPrice, priceRange)
+
+          if (index === 0) {
+            this.comparisonGraphics!.moveTo(x, y)
+          } else {
+            this.comparisonGraphics!.lineTo(x, y)
+          }
+        })
+
+        this.comparisonGraphics.strokePath()
+
+        // S&P 500 label
+        const lastPoint = sp500VisibleData[sp500VisibleData.length - 1]
+        const lastIndex = sp500VisibleData.length - 1
+        const slotIndex = this.candleSlotIndex(visibleLength, lastIndex)
+        const x = startX + (slotIndex + 0.5) * gw - this.scrollOffsetX
+        const y = this.priceToY(lastPoint.price, minPrice, maxPrice, priceRange)
+
+        try {
+          const label = this.add.text(x + 5, y - 10, 'S&P 500', {
+            fontSize: `${Math.max(10, this.labelFontSize - 2)}px`,
+            color: '#94a3b8',
+            backgroundColor: '#1e293b',
+            padding: { x: 4, y: 2 },
+          })
+          label.setOrigin(0, 0.5)
+          this.priceLabels.push(label)
+        } catch (e) {
+          // Skip label if creation fails
+        }
+      }
+    }
+
+    // Draw Portfolio line (gold)
+    if (this.portfolioData.length > 0) {
+      this.comparisonGraphics.lineStyle(3, this.PORTFOLIO_COLOR, 0.9)
+      this.comparisonGraphics.beginPath()
+
+      this.portfolioData.forEach((point, index) => {
+        if (index >= visibleLength) return
+        const slotIndex = this.candleSlotIndex(visibleLength, index)
+        const x = startX + (slotIndex + 0.5) * gw - this.scrollOffsetX
+        const y = this.priceToY(point.price, minPrice, maxPrice, priceRange)
+
+        if (index === 0) {
+          this.comparisonGraphics!.moveTo(x, y)
+        } else {
+          this.comparisonGraphics!.lineTo(x, y)
+        }
+      })
+
+      this.comparisonGraphics.strokePath()
+
+      // Portfolio label
+      if (this.portfolioData.length > 0) {
+        const lastPoint = this.portfolioData[this.portfolioData.length - 1]
+        const lastIndex = Math.min(this.portfolioData.length - 1, visibleLength - 1)
+        const slotIndex = this.candleSlotIndex(visibleLength, lastIndex)
+        const x = startX + (slotIndex + 0.5) * gw - this.scrollOffsetX
+        const y = this.priceToY(lastPoint.price, minPrice, maxPrice, priceRange)
+
+        try {
+          const label = this.add.text(x + 5, y + 10, 'Portfolio', {
+            fontSize: `${Math.max(10, this.labelFontSize - 2)}px`,
+            color: '#fbbf24',
+            backgroundColor: '#1e293b',
+            padding: { x: 4, y: 2 },
+            fontStyle: 'bold',
+          })
+          label.setOrigin(0, 0.5)
+          this.priceLabels.push(label)
+        } catch (e) {
+          // Skip label if creation fails
+        }
+      }
+
+      // Golden aura effect when portfolio > S&P 500
+      if (this.sp500Data.length > 0 && this.portfolioData.length > 0) {
+        const portfolioLast = this.portfolioData[this.portfolioData.length - 1]
+        const sp500Last = this.sp500Data[this.sp500Data.length - 1]
+
+        if (portfolioLast.price > sp500Last.price && this.auraEffect) {
+          // Draw golden glow around chart edges
+          this.auraEffect.lineStyle(4, this.PORTFOLIO_COLOR, 0.3)
+          this.auraEffect.strokeRect(
+            this.chartPadding.left - 2,
+            this.chartPadding.top - 2,
+            this.chartWidth + 4,
+            this.chartHeight + 4
+          )
+          this.auraEffect.lineStyle(2, this.PORTFOLIO_COLOR, 0.2)
+          this.auraEffect.strokeRect(
+            this.chartPadding.left - 4,
+            this.chartPadding.top - 4,
+            this.chartWidth + 8,
+            this.chartHeight + 8
+          )
+        }
+      }
     }
   }
 

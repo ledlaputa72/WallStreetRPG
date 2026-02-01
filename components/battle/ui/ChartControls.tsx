@@ -5,15 +5,19 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ChartType, CandleCount, SpeedMultiplier, GameState } from '../types'
 
+type ChartViewMode = 'portfolio' | 'sp500' | 'stock'
+
 interface ChartControlsProps {
   gameState: GameState
   chartType: ChartType
   candleCount: CandleCount
   speedMultiplier: SpeedMultiplier
+  chartMode?: ChartViewMode
   onStartStop: () => void
   onChartTypeChange: (type: ChartType) => void
   onCandleCountChange: (count: CandleCount) => void
   onSpeedChange: (speed: SpeedMultiplier) => void
+  onChartModeChange?: (mode: ChartViewMode) => void
 }
 
 export function ChartControls({
@@ -21,10 +25,12 @@ export function ChartControls({
   chartType,
   candleCount,
   speedMultiplier,
+  chartMode = 'portfolio',
   onStartStop,
   onChartTypeChange,
   onCandleCountChange,
   onSpeedChange,
+  onChartModeChange,
 }: ChartControlsProps) {
   const chartTypes: ChartType[] = ['area', 'candle', 'line']
   const candleCounts: CandleCount[] = [20, 30, 40]
@@ -97,6 +103,34 @@ export function ChartControls({
         )}
         {getStartStopLabel()}
       </Button>
+
+      {/* Chart Mode Buttons: Portfolio / S&P 500 */}
+      {onChartModeChange && (
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => onChartModeChange('portfolio')}
+            className={cn(
+              secondaryBtnClass,
+              chartMode === 'portfolio' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-500 hover:bg-amber-600'
+            )}
+          >
+            Portfolio
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => onChartModeChange('sp500')}
+            className={cn(
+              secondaryBtnClass,
+              chartMode === 'sp500' ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-500 hover:bg-gray-600'
+            )}
+          >
+            S&P 500
+          </Button>
+        </div>
+      )}
 
       {/* 오른쪽 정렬: Candle / 20x / x1 — 동일 너비 (Candle 기준) */}
       <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">

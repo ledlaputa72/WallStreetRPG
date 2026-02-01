@@ -7,32 +7,26 @@ import { usePhaserGame } from '@/components/battle/hooks/usePhaserGame'
 import { StageInfo } from '@/components/battle/ui/StageInfo'
 import { ChartControls } from '@/components/battle/ui/ChartControls'
 import { QuickInventory } from '@/components/battle/ui/QuickInventory'
-import { QuickSkills } from '@/components/battle/ui/QuickSkills'
-import { CharacterStats } from '@/components/battle/ui/CharacterStats'
-import { mockHero, mockPartners, mockInventory, mockSkills } from '@/components/battle/constants'
+import { TradingActions } from '@/components/battle/ui/TradingActions'
+import { CapitalInfo } from '@/components/battle/ui/CapitalInfo'
 import { eventBus, EVENTS } from '@/components/battle/event-bus'
+import { useGameStore } from '@/lib/stores/useGameStore'
+import { StartDashboard } from '@/components/game/StartDashboard'
+import { SelectionOverlay } from '@/components/game/SelectionOverlay'
+import { SettlementReport } from '@/components/game/SettlementReport'
+import { generateInitialDraft, generateQuarterlyDraft } from '@/lib/utils/cardGenerator'
+import { fetchHistoricalStockData, fetchSP500Data } from '@/lib/utils/dataFetcher'
+import type { StockCard } from '@/lib/types/stock'
 import type { GameState, SpeedMultiplier } from '@/components/battle/types'
 
-// Market candle data structure
-interface MarketCandle {
-  time: string
-  open: number
-  high: number
-  low: number
-  close: number
-  volume: number
+interface CardPriceInfo {
+  cardId: string
+  price: number
+  quantity: number
+  totalCost: number
 }
 
-// Stage data structure
-interface StageData {
-  symbol: string
-  stockName: string
-  year: number
-  fullYearData: MarketCandle[]
-  currentIndex: number
-}
-
-// Phaser 컴포넌트를 dynamic import (SSR 비활성화)
+// Phaser component dynamic import
 const PhaserGame = dynamic(
   () => import('@/components/battle/phaser-game').then(mod => ({ default: mod.PhaserGame })),
   {
@@ -49,18 +43,53 @@ const PhaserGame = dynamic(
   }
 )
 
+type GamePhase = 'start' | 'draft' | 'playing' | 'quarterly-draft' | 'settlement'
+
 export function BattlePage() {
-  const stage = '4-12'
-  const wave = { current: 1, max: 5 }
+  // Game phase management
+  const [gamePhase, setGamePhase] = useState<GamePhase>('start')
+  const [draftCards, setDraftCards] = useState<StockCard[]>([])
+  const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set())
+  const [cardPrices, setCardPrices] = useState<Map<string, CardPriceInfo>>(new Map())
+  const [chartMode, setChartMode] = useState<'portfolio' | 'sp500' | 'stock'>('portfolio')
+  const selectedPositionId = useGameStore(state => state.selectedPositionId)
+  const setSelectedPositionId = useGameStore(state => state.setSelectedPositionId)
   
-  // Game state management
-  const [gameState, setGameState] = useState<GameState>('IDLE')
-  const [stageData, setStageData] = useState<StageData | null>(null)
-  const animationIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  // Zustand store
+  const aum = useGameStore(state => state.aum)
+  const currentDayIndex = useGameStore(state => state.currentDayIndex)
+  const selectedYear = useGameStore(state => state.selectedYear)
+  const portfolio = useGameStore(state => state.portfolioAssets)
+  const isPlaying = useGameStore(state => state.isPlaying)
+  const totalAssets = useGameStore(state => state.totalAssets)
+  const realizedProfit = useGameStore(state => state.realizedProfit)
+  const dailyCapitalInflow = useGameStore(state => state.dailyCapitalInflow)
+  const sp500Data = useGameStore(state => state.sp500Data)
+  const incrementDay = useGameStore(state => state.incrementDay)
+  const updatePositionPrice = useGameStore(state => state.updatePositionPrice)
+  const addToPortfolio = useGameStore(state => state.addToPortfolio)
+  const setSP500Data = useGameStore(state => state.setSP500Data)
+  const updateSP500Price = useGameStore(state => state.updateSP500Price)
+  const setSelectedYear: (year: number) => void = useGameStore(state => state.setSelectedYear)
   
+  // Calculate available capital for investment
+  const availableCapital = useMemo(() => {
+    // realizedProfit already includes dailyCapitalInflow accumulated up to currentDayIndex
+    return Math.max(0, realizedProfit)
+  }, [realizedProfit])
+  
+  // For initial draft, use AUM as available capital
+  const draftAvailableCapital = useMemo(() => {
+    if (gamePhase === 'draft') {
+      return aum || 0
+    }
+    // For quarterly draft, use calculated availableCapital
+    return availableCapital
+  }, [gamePhase, aum, availableCapital])
+  
+  // Phaser game hook
   const {
     phaserRef,
-    phaserReady,
     currentPrice,
     profitPercent,
     chartType,
@@ -71,93 +100,206 @@ export function BattlePage() {
     handleSpeedChange,
   } = usePhaserGame()
 
-  // Speed ref to avoid including speedMultiplier in animation dependencies
+  const animationIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const speedMultiplierRef = useRef<SpeedMultiplier>(speedMultiplier)
-  
-  // Keep ref in sync with speedMultiplier
+
   useEffect(() => {
     speedMultiplierRef.current = speedMultiplier
   }, [speedMultiplier])
 
-  // Display symbol - from stage data
-  const displaySymbol = stageData?.symbol || (gameState === 'IDLE' ? 'Press Start' : 'LOADING...')
-  const displayStockName = stageData?.stockName
-  const displayYear = stageData?.year
-  
-  // Get current candle date (latest displayed candle)
-  const displayDate = useMemo(() => {
-    if (!stageData || stageData.currentIndex === 0) return undefined
-    const currentCandle = stageData.fullYearData[stageData.currentIndex - 1]
-    if (!currentCandle?.time) return undefined
-    
-    const date = new Date(currentCandle.time)
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const day = date.getDate().toString().padStart(2, '0')
-    return `${month}-${day}`
-  }, [stageData])
-
-  // Fetch new simulation data
-  const fetchNewSimulation = useCallback(async () => {
-    setGameState('LOADING')
-    
-    try {
-      // API 1회만 호출 (1년치 전체 로드)
-      const response = await fetch('/api/market?type=historical')
-      const result = await response.json()
-
-      if (result.success && result.data && result.data.length > 0) {
-        // API 호출 1회만 완료. 이후에는 fullYearData에서만 순차 재생 (추가 fetch 없음)
-        console.log(`✅ [1회 로드] ${result.symbol} - ${result.stockName} (${result.year}), ${result.data.length}일치 메모리 저장 → 이제 재생만 함`)
-        
-        // Clear existing chart data via event bus
-        eventBus.emit(EVENTS.CLEAR_CHART)
-        
-        setStageData({
-          symbol: result.symbol,
-          stockName: result.stockName,
-          year: result.year,
-          fullYearData: result.data,
-          currentIndex: 0
-        })
-        setGameState('PLAYING')
-      } else {
-        throw new Error('Failed to fetch simulation data')
-      }
-    } catch (error) {
-      console.error('❌ Failed to start simulation:', error)
-      setGameState('IDLE')
-    }
-  }, [])
-
-  // Stop simulation and reset
-  const stopSimulation = useCallback(() => {
-    // Clear interval
-    if (animationIntervalRef.current) {
-      clearInterval(animationIntervalRef.current)
-      animationIntervalRef.current = null
-    }
-    
-    // Clear chart data
-    eventBus.emit(EVENTS.CLEAR_CHART)
-    
-    // Reset state
-    setStageData(null)
-    setGameState('IDLE')
-  }, [])
-
-  // Handle Start/Stop button
-  const handleStartStop = useCallback(() => {
-    if (gameState === 'IDLE') {
-      fetchNewSimulation()
-    } else if (gameState === 'PLAYING') {
-      stopSimulation()
-    }
-  }, [gameState, fetchNewSimulation, stopSimulation])
-
-  // Sequential animation loop - START ONLY (no dependencies on changing state)
+  // Update S&P500 data in Phaser scene
   useEffect(() => {
-    if (gameState !== 'PLAYING' || !stageData) {
-      // Stop animation if not playing
+    if (phaserRef.current?.scene && sp500Data && sp500Data.length > 0 && currentDayIndex >= 0) {
+      // Convert MarketCandle[] to { day: number; price: number }[]
+      // Only include data up to current day
+      const sp500LineData = sp500Data.slice(0, currentDayIndex + 1).map((candle, index) => ({
+        day: index,
+        price: candle.close,
+      }))
+      phaserRef.current.scene.updateSP500Data(sp500LineData)
+    }
+  }, [phaserRef, sp500Data, currentDayIndex])
+
+  // Handle game start from dashboard
+  const handleStartGame = useCallback(async (selectedAUM: number) => {
+    // Generate random year
+    const year = Math.floor(Math.random() * (2025 - 1925 + 1)) + 1925
+    setSelectedYear(year)
+
+    // Generate initial draft cards
+    const cards = generateInitialDraft(selectedAUM, year)
+    setDraftCards(cards)
+    setSelectedCardIds(new Set())
+    
+    // Fetch prices for all cards
+    const priceMap = new Map<string, CardPriceInfo>()
+    for (const card of cards) {
+      const stockResult = await fetchHistoricalStockData(card.symbol, year)
+      if (stockResult.success && stockResult.data.length > 0) {
+        const price = stockResult.data[0].close
+        // Calculate quantity - each card should be 15-30% of total capital
+        // Random percentage between 15% and 30%
+        const investmentPercentage = 0.15 + Math.random() * 0.15 // 15% to 30%
+        const targetInvestment = selectedAUM * investmentPercentage
+        const quantity = Math.max(1, Math.floor(targetInvestment / price))
+        const totalCost = price * quantity
+        
+        priceMap.set(card.id, {
+          cardId: card.id,
+          price,
+          quantity,
+          totalCost,
+        })
+      }
+    }
+    setCardPrices(priceMap)
+    setGamePhase('draft')
+  }, [setSelectedYear])
+
+  // Handle card selection from draft
+  const handleCardSelect = useCallback((card: StockCard) => {
+    const priceInfo = cardPrices.get(card.id)
+    if (!priceInfo) {
+      console.warn('Price info not found for card:', card.id)
+      return
+    }
+
+    // Toggle selection
+    setSelectedCardIds(prev => {
+      const newSelectedIds = new Set(prev)
+      const isCurrentlySelected = newSelectedIds.has(card.id)
+      
+      if (isCurrentlySelected) {
+        // Deselect
+        newSelectedIds.delete(card.id)
+      } else {
+        // Select - check if can afford using initial AUM
+        const totalSelectedCost = Array.from(prev).reduce((sum, cardId) => {
+          const info = cardPrices.get(cardId)
+          return sum + (info?.totalCost || 0)
+        }, 0)
+        
+        // Check if can afford this card (using initial AUM, not availableCapital)
+        const initialAUM = aum || 0
+        if (totalSelectedCost + priceInfo.totalCost > initialAUM) {
+          // Cannot afford
+          return prev
+        }
+        
+        // Can afford - add to selection
+        newSelectedIds.add(card.id)
+      }
+      
+      return newSelectedIds
+    })
+  }, [cardPrices, aum])
+  
+  // Start simulation
+  const startSimulation = useCallback(async () => {
+    if (!selectedYear) return
+
+    // Fetch S&P 500 data
+    const sp500Result = await fetchSP500Data(selectedYear)
+    if (sp500Result.success) {
+      setSP500Data(sp500Result.data)
+    }
+
+    // Initialize positions
+    const currentPortfolio = useGameStore.getState().portfolioAssets
+    currentPortfolio.forEach(position => {
+      if (position.data.length > 0) {
+        updatePositionPrice(position.id, position.data[0].close, 0)
+      }
+    })
+
+    // Initialize chart based on mode (default: portfolio)
+    const aumValue = useGameStore.getState().aum || 0
+    if (phaserRef.current?.scene) {
+      const portfolioLineData = [{ day: 0, price: aumValue }]
+      phaserRef.current.scene.updatePortfolioData(portfolioLineData)
+      
+      // Send initial portfolio candle
+      const initialCandle = {
+        id: 'portfolio-0',
+        time: new Date().toISOString(),
+        open: aumValue,
+        high: aumValue * 1.01,
+        low: aumValue * 0.99,
+        close: aumValue,
+        volume: 0,
+      }
+      eventBus.emit(EVENTS.NEW_CANDLE, initialCandle)
+      
+      // Initialize S&P500 data if available
+      if (sp500Result.success && sp500Result.data.length > 0) {
+        const sp500LineData = [{ day: 0, price: sp500Result.data[0].close }]
+        phaserRef.current.scene.updateSP500Data(sp500LineData)
+      }
+    }
+
+    setGamePhase('playing')
+    setChartMode('portfolio')
+    useGameStore.setState({ isPlaying: true, currentDayIndex: 0 })
+  }, [selectedYear, setSP500Data, updatePositionPrice])
+
+  // Handle draft completion - create portfolio positions from selected cards
+  const handleDraftComplete = useCallback(async () => {
+    if (selectedCardIds.size === 0) {
+      alert('Please select at least one stock')
+      return
+    }
+
+    if (!selectedYear) return
+
+    // Create portfolio positions for selected cards
+    const newPositions = []
+    let totalCost = 0
+
+    for (const cardId of selectedCardIds) {
+      const card = draftCards.find(c => c.id === cardId)
+      const priceInfo = cardPrices.get(cardId)
+      if (!card || !priceInfo) continue
+
+      // Fetch stock data
+      const stockResult = await fetchHistoricalStockData(card.symbol, selectedYear)
+      if (!stockResult.success || stockResult.data.length === 0) {
+        console.error('Failed to fetch stock data for', card.symbol)
+        continue
+      }
+
+      // Create portfolio position
+      const position = {
+        id: `${card.symbol}-${Date.now()}-${Math.random()}`,
+        symbol: card.symbol,
+        stockName: card.stockName,
+        sector: card.sector,
+        rarity: card.rarity,
+        buyPrice: priceInfo.price,
+        quantity: priceInfo.quantity,
+        currentPrice: priceInfo.price,
+        buyDayIndex: 0,
+        data: stockResult.data,
+        currentDayIndex: 0,
+      }
+
+      newPositions.push(position)
+      totalCost += priceInfo.totalCost
+    }
+
+    // Add all positions to portfolio
+    newPositions.forEach(position => addToPortfolio(position))
+
+    // Update realized profit (remaining capital after purchases)
+    const initialAUM = aum || 0
+    useGameStore.setState({ realizedProfit: initialAUM - totalCost })
+
+    // Start simulation
+    await startSimulation()
+  }, [selectedCardIds, draftCards, cardPrices, selectedYear, aum, addToPortfolio, startSimulation])
+
+  // Game loop - increment day and update prices
+  useEffect(() => {
+    if (gamePhase !== 'playing' || !isPlaying) {
       if (animationIntervalRef.current) {
         clearInterval(animationIntervalRef.current)
         animationIntervalRef.current = null
@@ -165,168 +307,399 @@ export function BattlePage() {
       return
     }
 
-    // Check if animation is complete at start
-    if (stageData.currentIndex >= stageData.fullYearData.length) {
-      console.log('🎬 Year animation complete! All trading days displayed.')
-      setGameState('IDLE')
-      setStageData(null)
-      return
-    }
-
-    // Animation tick function
     const tick = () => {
-      setStageData(prev => {
-        if (!prev) return null
-        
-        // Check if we've reached the end
-        if (prev.currentIndex >= prev.fullYearData.length) {
-          if (animationIntervalRef.current) {
-            clearInterval(animationIntervalRef.current)
-            animationIntervalRef.current = null
-          }
-          // Trigger completion after state update completes
-          setTimeout(() => {
-            setGameState('IDLE')
-            setStageData(null)
-          }, 0)
-          return prev
+      const currentDay = useGameStore.getState().currentDayIndex
+
+      if (currentDay >= 252) {
+        // Game complete
+        setGamePhase('settlement')
+        useGameStore.setState({ isPlaying: false })
+        if (animationIntervalRef.current) {
+          clearInterval(animationIntervalRef.current)
+          animationIntervalRef.current = null
         }
+        return
+      }
 
-        // Get next day's data
-        const nextCandle = prev.fullYearData[prev.currentIndex]
+      // Check for quarterly drafts (days 63, 126, 189)
+      if (currentDay === 63 || currentDay === 126 || currentDay === 189) {
+        useGameStore.setState({ isPlaying: false })
+        if (animationIntervalRef.current) {
+          clearInterval(animationIntervalRef.current)
+          animationIntervalRef.current = null
+        }
         
-        // Send to Phaser via event bus
-        // 이미 로드된 fullYearData에서 1일치만 꺼내서 Phaser로 전달 (API 호출 없음)
-        eventBus.emit(EVENTS.NEW_CANDLE, {
-          id: `${prev.symbol}-${prev.currentIndex}-${nextCandle.time}`,
-          time: nextCandle.time,
-          open: nextCandle.open,
-          high: nextCandle.high,
-          low: nextCandle.low,
-          close: nextCandle.close,
-          volume: nextCandle.volume
-        })
+        // Generate quarterly draft
+        const cards = generateQuarterlyDraft(aum || 10000, selectedYear || 2020)
+        setDraftCards(cards)
+        setSelectedCardIds(new Set())
+        
+        // Get current available capital (realizedProfit already includes dailyCapitalInflow)
+        const store = useGameStore.getState()
+        const currentCapital = Math.max(0, store.realizedProfit)
+        
+        // Fetch prices for quarterly draft cards (async)
+        ;(async () => {
+          const priceMap = new Map<string, CardPriceInfo>()
+          for (const card of cards) {
+            const stockResult = await fetchHistoricalStockData(card.symbol, selectedYear || 2020)
+            if (stockResult.success && stockResult.data.length > 0) {
+              const price = stockResult.data[0].close
+              // For quarterly, allow buying with available capital
+              const maxQuantity = Math.floor(currentCapital / price)
+              const quantity = Math.max(1, maxQuantity)
+              const totalCost = price * quantity
+              
+              priceMap.set(card.id, {
+                cardId: card.id,
+                price,
+                quantity,
+                totalCost,
+              })
+            }
+          }
+          setCardPrices(priceMap)
+        })()
+        
+        setGamePhase('quarterly-draft')
+        return
+      }
 
-        // Increment index
-        return {
-          ...prev,
-          currentIndex: prev.currentIndex + 1
+      // Increment day
+      incrementDay()
+
+      // Update all position prices
+      portfolio.forEach(position => {
+        if (position.data.length > currentDay + 1) {
+          const newPrice = position.data[currentDay + 1].close
+          updatePositionPrice(position.id, newPrice, currentDay + 1)
         }
       })
+
+      // Update S&P 500 price
+      const sp500Data = useGameStore.getState().sp500Data
+      if (sp500Data && sp500Data.length > currentDay + 1) {
+        updateSP500Price(sp500Data[currentDay + 1].close)
+        
+        // Update S&P500 data in Phaser scene (up to current day)
+        if (phaserRef.current?.scene) {
+          const sp500LineData = sp500Data.slice(0, currentDay + 1).map((candle, index) => ({
+            day: index,
+            price: candle.close,
+          }))
+          phaserRef.current.scene.updateSP500Data(sp500LineData)
+        }
+      }
+
+      // Send candle to Phaser based on chart mode
+      if (chartMode === 'stock' && selectedPositionId) {
+        const position = portfolio.find(p => p.id === selectedPositionId)
+        if (position && position.data.length > currentDay + 1) {
+          const candle = position.data[currentDay + 1]
+          eventBus.emit(EVENTS.NEW_CANDLE, {
+            id: `${position.symbol}-${currentDay + 1}-${candle.time}`,
+            time: candle.time,
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+            volume: candle.volume,
+          })
+        }
+      } else if (chartMode === 'sp500') {
+        // Show S&P 500 chart
+        const sp500Data = useGameStore.getState().sp500Data
+        if (sp500Data && sp500Data.length > currentDay + 1) {
+          const candle = sp500Data[currentDay + 1]
+          const prevCandle = sp500Data[currentDay] || candle
+          eventBus.emit(EVENTS.NEW_CANDLE, {
+            id: `sp500-${currentDay + 1}`,
+            time: new Date().toISOString(),
+            open: prevCandle.close,
+            high: Math.max(prevCandle.close, candle.close) * 1.001,
+            low: Math.min(prevCandle.close, candle.close) * 0.999,
+            close: candle.close,
+            volume: 0,
+          })
+        }
+      } else if (chartMode === 'portfolio') {
+        // Show portfolio total value
+        const aumValue = useGameStore.getState().aum || 0
+        const realizedProfit = useGameStore.getState().realizedProfit
+        
+        // Calculate portfolio value at current day
+        // Start with AUM, subtract initial purchases, add current portfolio value
+        let portfolioValue = aumValue
+        let previousValue = aumValue
+        
+        // Calculate previous day value for open price
+        if (currentDay > 0) {
+          portfolio.forEach(position => {
+            if (position.data.length > currentDay) {
+              previousValue += (position.data[currentDay].close - position.buyPrice) * position.quantity
+            }
+          })
+        }
+        
+        // Calculate current day value
+        portfolio.forEach(position => {
+          if (position.data.length > currentDay + 1) {
+            portfolioValue += (position.data[currentDay + 1].close - position.buyPrice) * position.quantity
+          } else if (position.data.length > currentDay) {
+            portfolioValue += (position.data[currentDay].close - position.buyPrice) * position.quantity
+          }
+        })
+        
+        // Add realized profit (cash from sales)
+        portfolioValue += realizedProfit
+        
+        // Create a synthetic candle representing portfolio total value
+        const portfolioCandle = {
+          id: `portfolio-${currentDay + 1}`,
+          time: new Date().toISOString(),
+          open: previousValue + realizedProfit,
+          high: portfolioValue * 1.01,
+          low: portfolioValue * 0.99,
+          close: portfolioValue,
+          volume: 0,
+        }
+        
+        eventBus.emit(EVENTS.NEW_CANDLE, portfolioCandle)
+        
+        // Update portfolio data for comparison line
+        if (phaserRef.current?.scene) {
+          const portfolioLineData = []
+          for (let day = 0; day <= currentDay + 1; day++) {
+            let dayValue = aumValue
+            portfolio.forEach(position => {
+              if (position.data.length > day) {
+                dayValue += (position.data[day].close - position.buyPrice) * position.quantity
+              }
+            })
+            dayValue += realizedProfit
+            portfolioLineData.push({ day, price: dayValue })
+          }
+          phaserRef.current.scene.updatePortfolioData(portfolioLineData)
+        }
+      }
     }
 
-    // Start animation with initial speed (1 second per day at x1)
-    const startAnimation = () => {
-      const interval = 1000 / speedMultiplierRef.current
-      animationIntervalRef.current = setInterval(tick, interval)
-    }
+    const interval = 1000 / speedMultiplierRef.current
+    animationIntervalRef.current = setInterval(tick, interval)
 
-    startAnimation()
-
-    // Cleanup
     return () => {
       if (animationIntervalRef.current) {
         clearInterval(animationIntervalRef.current)
         animationIntervalRef.current = null
       }
     }
-  }, [gameState, stageData?.symbol]) // Only depend on gameState and initial data load (symbol as proxy)
+  }, [gamePhase, isPlaying, portfolio, selectedPositionId, chartMode, incrementDay, updatePositionPrice, updateSP500Price, aum, selectedYear, phaserRef])
 
-  // Separate effect to handle speed changes WITHOUT restarting animation or losing data
+  // Update chart when mode changes
   useEffect(() => {
-    if (gameState !== 'PLAYING' || !animationIntervalRef.current) {
+    if (gamePhase !== 'playing' || !phaserRef.current?.scene) return
+
+    const currentDay = useGameStore.getState().currentDayIndex
+    const aumValue = useGameStore.getState().aum || 0
+    const realizedProfit = useGameStore.getState().realizedProfit
+
+    if (chartMode === 'portfolio') {
+      // Calculate portfolio value
+      let portfolioValue = aumValue
+      portfolio.forEach(position => {
+        if (position.data.length > currentDay) {
+          portfolioValue += (position.data[currentDay].close - position.buyPrice) * position.quantity
+        }
+      })
+      portfolioValue += realizedProfit
+
+      const portfolioCandle = {
+        id: `portfolio-${currentDay}`,
+        time: new Date().toISOString(),
+        open: portfolioValue,
+        high: portfolioValue * 1.01,
+        low: portfolioValue * 0.99,
+        close: portfolioValue,
+        volume: 0,
+      }
+      eventBus.emit(EVENTS.NEW_CANDLE, portfolioCandle)
+    } else if (chartMode === 'sp500') {
+      const sp500Data = useGameStore.getState().sp500Data
+      if (sp500Data && sp500Data.length > currentDay) {
+        const candle = sp500Data[currentDay]
+        const prevCandle = sp500Data[Math.max(0, currentDay - 1)] || candle
+        const sp500Candle = {
+          id: `sp500-${currentDay}`,
+          time: new Date().toISOString(),
+          open: prevCandle.close,
+          high: Math.max(prevCandle.close, candle.close) * 1.001,
+          low: Math.min(prevCandle.close, candle.close) * 0.999,
+          close: candle.close,
+          volume: 0,
+        }
+        eventBus.emit(EVENTS.NEW_CANDLE, sp500Candle)
+      }
+    } else if (chartMode === 'stock' && selectedPositionId) {
+      const position = portfolio.find(p => p.id === selectedPositionId)
+      if (position && position.data.length > currentDay) {
+        const candle = position.data[currentDay]
+        eventBus.emit(EVENTS.NEW_CANDLE, {
+          id: `${position.symbol}-${currentDay}-${candle.time}`,
+          time: candle.time,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
+          volume: candle.volume,
+        })
+      }
+    }
+  }, [chartMode, gamePhase, portfolio, selectedPositionId, phaserRef])
+
+  // Handle quarterly draft selection
+  const handleQuarterlySelect = useCallback(async (card: StockCard) => {
+    if (!selectedYear) return
+
+    const priceInfo = cardPrices.get(card.id)
+    if (!priceInfo) return
+
+    // Get current available capital (realizedProfit already includes dailyCapitalInflow)
+    const store = useGameStore.getState()
+    const currentCapital = Math.max(0, store.realizedProfit)
+
+    // For quarterly draft, only one card can be selected
+    if (selectedCardIds.has(card.id)) {
+      // Deselect - refund capital
+      setSelectedCardIds(new Set())
+      const newCapital = Math.max(0, currentCapital + priceInfo.totalCost)
+      useGameStore.setState({ realizedProfit: newCapital })
+      return
+    }
+    
+    // Select - check if can afford
+    if (priceInfo.totalCost > currentCapital) {
+      alert(`Insufficient funds. You need $${priceInfo.totalCost.toLocaleString()} but only have $${currentCapital.toLocaleString()}`)
       return
     }
 
-    // Clear old interval and create new one with updated speed
-    clearInterval(animationIntervalRef.current)
+    // Fetch stock data and create position
+    const stockResult = await fetchHistoricalStockData(card.symbol, selectedYear)
+    if (!stockResult.success || stockResult.data.length === 0) {
+      console.error('Failed to fetch stock data for', card.symbol)
+      return
+    }
+
+    // Create portfolio position
+    const position = {
+      id: `${card.symbol}-${Date.now()}-${Math.random()}`,
+      symbol: card.symbol,
+      stockName: card.stockName,
+      sector: card.sector,
+      rarity: card.rarity,
+      buyPrice: priceInfo.price,
+      quantity: priceInfo.quantity,
+      currentPrice: priceInfo.price,
+      buyDayIndex: currentDayIndex,
+      data: stockResult.data,
+      currentDayIndex: currentDayIndex,
+    }
+
+    addToPortfolio(position)
     
-    const tick = () => {
-      setStageData(prev => {
-        if (!prev) return null
-        
-        if (prev.currentIndex >= prev.fullYearData.length) {
-          if (animationIntervalRef.current) {
-            clearInterval(animationIntervalRef.current)
-            animationIntervalRef.current = null
-          }
-          setTimeout(() => {
-            setGameState('IDLE')
-            setStageData(null)
-          }, 0)
-          return prev
-        }
+    // Deduct capital
+    const newCapital = Math.max(0, currentCapital - priceInfo.totalCost)
+    useGameStore.setState({ realizedProfit: newCapital })
+    
+    setSelectedCardIds(new Set([card.id]))
 
-        const nextCandle = prev.fullYearData[prev.currentIndex]
-        
-        eventBus.emit(EVENTS.NEW_CANDLE, {
-          id: `${prev.symbol}-${prev.currentIndex}-${nextCandle.time}`,
-          time: nextCandle.time,
-          open: nextCandle.open,
-          high: nextCandle.high,
-          low: nextCandle.low,
-          close: nextCandle.close,
-          volume: nextCandle.volume
-        })
+    // Resume simulation after selection
+    setTimeout(() => {
+      setGamePhase('playing')
+      useGameStore.setState({ isPlaying: true })
+    }, 500)
+  }, [selectedYear, cardPrices, selectedCardIds, currentDayIndex, addToPortfolio])
 
-        return {
-          ...prev,
-          currentIndex: prev.currentIndex + 1
-        }
-      })
+  // Handle new game
+  const handleNewGame = useCallback(() => {
+    useGameStore.getState().resetGame()
+    setGamePhase('start')
+    setDraftCards([])
+    setSelectedPositionId(null)
+  }, [])
+
+  // Display values
+  const displaySymbol = useMemo(() => {
+    if (chartMode === 'sp500') {
+      return 'S&P 500'
     }
+    if (chartMode === 'stock' && selectedPositionId) {
+      const position = portfolio.find(p => p.id === selectedPositionId)
+      return position?.symbol || 'PORTFOLIO'
+    }
+    return 'PORTFOLIO'
+  }, [chartMode, selectedPositionId, portfolio])
 
-    const interval = 1000 / speedMultiplierRef.current  // 1 second per day at x1
-    animationIntervalRef.current = setInterval(tick, interval)
-  }, [speedMultiplier]) // Only re-run when speed changes
-
-  // Calculate target and resistance based on current price
-  // Target: +5% from current price, Resistance: +10% from current price
-  const targetPrice = useMemo(() => {
-    if (currentPrice > 0) {
-      return parseFloat((currentPrice * 1.05).toFixed(2))
+  const displayStockName = useMemo(() => {
+    if (selectedPositionId) {
+      const position = portfolio.find(p => p.id === selectedPositionId)
+      return position?.stockName
     }
     return undefined
-  }, [currentPrice])
+  }, [selectedPositionId, portfolio])
 
-  const resistancePrice = useMemo(() => {
-    if (currentPrice > 0) {
-      return parseFloat((currentPrice * 1.10).toFixed(2))
-    }
-    return undefined
-  }, [currentPrice])
+  // Render based on game phase
+  if (gamePhase === 'start') {
+    return <StartDashboard onStart={handleStartGame} />
+  }
 
-  const allCharacters = [mockHero, ...mockPartners]
+  if (gamePhase === 'draft' || gamePhase === 'quarterly-draft') {
+    return (
+      <SelectionOverlay
+        cards={draftCards}
+        layout={gamePhase === 'draft' ? 'initial' : 'quarterly'}
+        onSelect={gamePhase === 'draft' ? handleCardSelect : handleQuarterlySelect}
+        onComplete={gamePhase === 'draft' ? handleDraftComplete : undefined}
+        showCompleteButton={gamePhase === 'draft'}
+        title={gamePhase === 'draft' ? 'Select Your Initial Portfolio' : 'Quarterly Draft - Select One'}
+        availableCapital={draftAvailableCapital}
+        cardPrices={cardPrices}
+        selectedCards={selectedCardIds}
+      />
+    )
+  }
 
+  if (gamePhase === 'settlement') {
+    return <SettlementReport onNewGame={handleNewGame} />
+  }
+
+  // Main game view
   return (
     <div className="h-full flex flex-col overflow-hidden bg-[#09090b]">
-      {/* Stock Chart Section - Fixed Height (45% on desktop, min 420px) */}
+      {/* Capital Info */}
+      <CapitalInfo />
+      
+      {/* Stock Chart Section */}
       <section className="h-[45vh] min-h-[420px] md:min-h-[440px] border-b border-primary/20 flex flex-col gap-0 flex-shrink-0">
         {/* Header */}
         <div className="flex-shrink-0 p-3 md:p-4 border-b border-primary/10">
           <StageInfo
-            stage={stage}
-            currentWave={wave.current}
-            maxWave={wave.max}
+            stage={`Day ${currentDayIndex}/252`}
+            currentWave={Math.floor(currentDayIndex / 63) + 1}
+            maxWave={4}
             profitPercent={profitPercent}
             currentPrice={currentPrice}
-            targetPrice={targetPrice}
-            resistancePrice={resistancePrice}
             symbol={displaySymbol}
             stockName={displayStockName}
-            year={displayYear}
-            currentDate={displayDate}
+            year={selectedYear || undefined}
           />
         </div>
 
-        {/* Chart Area with Phaser */}
+        {/* Chart Area */}
         <div className="flex-1 overflow-hidden relative">
-          <PhaserGame 
-            ref={phaserRef} 
+          <PhaserGame
+            ref={phaserRef}
             currentActiveScene={undefined}
             symbol={displaySymbol}
-            targetPrice={targetPrice}
-            resistancePrice={resistancePrice}
             autoFetch={false}
             mode="realtime"
           />
@@ -335,23 +708,51 @@ export function BattlePage() {
         {/* Chart Controls */}
         <div className="flex-shrink-0 p-3 md:p-4 border-t border-primary/10 bg-card/5">
           <ChartControls
-            gameState={gameState}
+            gameState={isPlaying ? 'PLAYING' : 'IDLE'}
             chartType={chartType}
             candleCount={candleCount}
             speedMultiplier={speedMultiplier}
-            onStartStop={handleStartStop}
+            chartMode={chartMode}
+            onStartStop={() => {
+              useGameStore.setState({ isPlaying: !isPlaying })
+            }}
             onChartTypeChange={handleChartTypeChange}
             onCandleCountChange={handleCandleCountChange}
             onSpeedChange={handleSpeedChange}
+            onChartModeChange={(mode) => {
+              setChartMode(mode)
+              if (mode === 'stock' && !selectedPositionId && portfolio.length > 0) {
+                // If switching to stock mode but no position selected, select first one
+                setSelectedPositionId(portfolio[0].id)
+              } else if (mode !== 'stock') {
+                // Clear selection when switching to portfolio or sp500
+                setSelectedPositionId(null)
+              }
+            }}
           />
         </div>
       </section>
 
-      {/* Bottom Section: Inventory, Skills, Party - Scrollable */}
+      {/* Bottom Section */}
       <div className="flex-1 overflow-y-auto bg-background">
-        <QuickInventory items={mockInventory} />
-        <QuickSkills skills={mockSkills} />
-        <CharacterStats characters={allCharacters} />
+        <QuickInventory 
+          onStockSelect={(positionId) => {
+            setSelectedPositionId(positionId)
+            setChartMode('stock')
+          }}
+        />
+        {selectedPositionId && (
+          <div className="p-4">
+            <TradingActions
+              positionId={selectedPositionId}
+              onAction={(action) => {
+                if (action === 'sell') {
+                  setSelectedPositionId(null)
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
