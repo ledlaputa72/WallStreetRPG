@@ -15,7 +15,7 @@ import { StartDashboard } from '@/components/game/StartDashboard'
 import { SelectionOverlay } from '@/components/game/SelectionOverlay'
 import { SettlementReport } from '@/components/game/SettlementReport'
 import { generateInitialDraft, generateQuarterlyDraft } from '@/lib/utils/cardGenerator'
-import { fetchHistoricalStockData, fetchSP500Data } from '@/lib/utils/dataFetcher'
+import { fetchHistoricalStockData } from '@/lib/utils/dataFetcher'
 import type { StockCard } from '@/lib/types/stock'
 import type { GameState, SpeedMultiplier } from '@/components/battle/types'
 
@@ -51,7 +51,7 @@ export function BattlePage() {
   const [draftCards, setDraftCards] = useState<StockCard[]>([])
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set())
   const [cardPrices, setCardPrices] = useState<Map<string, CardPriceInfo>>(new Map())
-  const [chartMode, setChartMode] = useState<'portfolio' | 'sp500' | 'stock'>('portfolio')
+  const [chartMode, setChartMode] = useState<'portfolio' | 'stock'>('portfolio')
   const selectedPositionId = useGameStore(state => state.selectedPositionId)
   const setSelectedPositionId = useGameStore(state => state.setSelectedPositionId)
   
@@ -64,12 +64,9 @@ export function BattlePage() {
   const totalAssets = useGameStore(state => state.totalAssets)
   const realizedProfit = useGameStore(state => state.realizedProfit)
   const dailyCapitalInflow = useGameStore(state => state.dailyCapitalInflow)
-  const sp500Data = useGameStore(state => state.sp500Data)
   const incrementDay = useGameStore(state => state.incrementDay)
   const updatePositionPrice = useGameStore(state => state.updatePositionPrice)
   const addToPortfolio = useGameStore(state => state.addToPortfolio)
-  const setSP500Data = useGameStore(state => state.setSP500Data)
-  const updateSP500Price = useGameStore(state => state.updateSP500Price)
   const setSelectedYear: (year: number) => void = useGameStore(state => state.setSelectedYear)
   
   // Calculate available capital for investment
@@ -110,18 +107,6 @@ export function BattlePage() {
     speedMultiplierRef.current = speedMultiplier
   }, [speedMultiplier])
 
-  // Update S&P500 data in Phaser scene
-  useEffect(() => {
-    if (phaserRef.current?.scene && sp500Data && sp500Data.length > 0 && currentDayIndex >= 0) {
-      // Convert MarketCandle[] to { day: number; price: number }[]
-      // Only include data up to current day
-      const sp500LineData = sp500Data.slice(0, currentDayIndex + 1).map((candle, index) => ({
-        day: index,
-        price: candle.close,
-      }))
-      phaserRef.current.scene.updateSP500Data(sp500LineData)
-    }
-  }, [phaserRef, sp500Data, currentDayIndex])
 
   // Handle game start from dashboard
   const handleStartGame = useCallback(async (selectedAUM: number) => {
@@ -201,12 +186,6 @@ export function BattlePage() {
   const startSimulation = useCallback(async () => {
     if (!selectedYear) return
 
-    // Fetch S&P 500 data
-    const sp500Result = await fetchSP500Data(selectedYear)
-    if (sp500Result.success) {
-      setSP500Data(sp500Result.data)
-    }
-
     // Initialize positions
     const currentPortfolio = useGameStore.getState().portfolioAssets
     currentPortfolio.forEach(position => {
@@ -232,12 +211,6 @@ export function BattlePage() {
         volume: 0,
       }
       eventBus.emit(EVENTS.NEW_CANDLE, initialCandle)
-      
-      // Initialize S&P500 data if available
-      if (sp500Result.success && sp500Result.data.length > 0) {
-        const sp500LineData = [{ day: 0, price: sp500Result.data[0].close }]
-        phaserRef.current.scene.updateSP500Data(sp500LineData)
-      }
     }
 
     setGamePhase('playing')
@@ -248,7 +221,7 @@ export function BattlePage() {
     // Reset quarterly drafts tracking for new game
     openedQuarterlyDraftsRef.current.clear()
     isOpeningQuarterlyDraftRef.current = false
-  }, [selectedYear, setSP500Data, updatePositionPrice])
+  }, [selectedYear, updatePositionPrice])
 
   // Handle draft completion - create portfolio positions from selected cards
   const handleDraftComplete = useCallback(async () => {
@@ -413,21 +386,6 @@ export function BattlePage() {
         }
       })
 
-      // Update S&P 500 price
-      const sp500Data = useGameStore.getState().sp500Data
-      if (sp500Data && sp500Data.length > currentDay + 1) {
-        updateSP500Price(sp500Data[currentDay + 1].close)
-        
-        // Update S&P500 data in Phaser scene (up to current day)
-        if (phaserRef.current?.scene) {
-          const sp500LineData = sp500Data.slice(0, currentDay + 1).map((candle, index) => ({
-            day: index,
-            price: candle.close,
-          }))
-          phaserRef.current.scene.updateSP500Data(sp500LineData)
-        }
-      }
-
       // Send candle to Phaser based on chart mode
       if (chartMode === 'stock' && selectedPositionId) {
         const position = portfolio.find(p => p.id === selectedPositionId)
@@ -441,22 +399,6 @@ export function BattlePage() {
             low: candle.low,
             close: candle.close,
             volume: candle.volume,
-          })
-        }
-      } else if (chartMode === 'sp500') {
-        // Show S&P 500 chart
-        const sp500Data = useGameStore.getState().sp500Data
-        if (sp500Data && sp500Data.length > currentDay + 1) {
-          const candle = sp500Data[currentDay + 1]
-          const prevCandle = sp500Data[currentDay] || candle
-          eventBus.emit(EVENTS.NEW_CANDLE, {
-            id: `sp500-${currentDay + 1}`,
-            time: new Date().toISOString(),
-            open: prevCandle.close,
-            high: Math.max(prevCandle.close, candle.close) * 1.001,
-            low: Math.min(prevCandle.close, candle.close) * 0.999,
-            close: candle.close,
-            volume: 0,
           })
         }
       } else if (chartMode === 'portfolio') {
@@ -530,7 +472,7 @@ export function BattlePage() {
         animationIntervalRef.current = null
       }
     }
-  }, [gamePhase, isPlaying, portfolio, selectedPositionId, chartMode, incrementDay, updatePositionPrice, updateSP500Price, aum, selectedYear, phaserRef])
+  }, [gamePhase, isPlaying, portfolio, selectedPositionId, chartMode, incrementDay, updatePositionPrice, aum, selectedYear, phaserRef])
 
   // Update chart when mode changes
   useEffect(() => {
@@ -560,22 +502,6 @@ export function BattlePage() {
         volume: 0,
       }
       eventBus.emit(EVENTS.NEW_CANDLE, portfolioCandle)
-    } else if (chartMode === 'sp500') {
-      const sp500Data = useGameStore.getState().sp500Data
-      if (sp500Data && sp500Data.length > currentDay) {
-        const candle = sp500Data[currentDay]
-        const prevCandle = sp500Data[Math.max(0, currentDay - 1)] || candle
-        const sp500Candle = {
-          id: `sp500-${currentDay}`,
-          time: new Date().toISOString(),
-          open: prevCandle.close,
-          high: Math.max(prevCandle.close, candle.close) * 1.001,
-          low: Math.min(prevCandle.close, candle.close) * 0.999,
-          close: candle.close,
-          volume: 0,
-        }
-        eventBus.emit(EVENTS.NEW_CANDLE, sp500Candle)
-      }
     } else if (chartMode === 'stock' && selectedPositionId) {
       const position = portfolio.find(p => p.id === selectedPositionId)
       if (position && position.data.length > currentDay) {
@@ -668,9 +594,6 @@ export function BattlePage() {
 
   // Display values
   const displaySymbol = useMemo(() => {
-    if (chartMode === 'sp500') {
-      return 'S&P 500'
-    }
     if (chartMode === 'stock' && selectedPositionId) {
       const position = portfolio.find(p => p.id === selectedPositionId)
       return position?.symbol || 'PORTFOLIO'
@@ -763,8 +686,8 @@ export function BattlePage() {
               if (mode === 'stock' && !selectedPositionId && portfolio.length > 0) {
                 // If switching to stock mode but no position selected, select first one
                 setSelectedPositionId(portfolio[0].id)
-              } else if (mode !== 'stock') {
-                // Clear selection when switching to portfolio or sp500
+              } else if (mode === 'portfolio') {
+                // Clear selection when switching to portfolio
                 setSelectedPositionId(null)
               }
             }}

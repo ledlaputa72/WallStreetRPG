@@ -79,8 +79,7 @@ export default class BattleScene extends Phaser.Scene {
   private historicalQueue: CandleData[] = []
   private isPlayingHistorical: boolean = false
 
-  // Portfolio and S&P 500 comparison
-  private sp500Data: Array<{ day: number; price: number }> = []
+  // Portfolio comparison
   private portfolioData: Array<{ day: number; price: number }> = []
   private comparisonGraphics: Phaser.GameObjects.Graphics | null = null
   private auraEffect: Phaser.GameObjects.Graphics | null = null
@@ -90,7 +89,6 @@ export default class BattleScene extends Phaser.Scene {
   private readonly BEAR_COLOR = 0xef4444 // Red for down
   private readonly GRID_COLOR = 0x334155
   private readonly PRICE_LINE_COLOR = 0xfbbf24 // Amber for current price
-  private readonly SP500_COLOR = 0x94a3b8 // Gray for S&P 500
   private readonly PORTFOLIO_COLOR = 0xfbbf24 // Gold for portfolio
 
   constructor() {
@@ -616,14 +614,6 @@ export default class BattleScene extends Phaser.Scene {
     }
   }
 
-  // Public method to update S&P 500 data
-  public updateSP500Data(data: Array<{ day: number; price: number }>) {
-    this.sp500Data = data
-    if (this.add && this.gridGraphics) {
-      this.renderChart()
-    }
-  }
-
   // Public method to update portfolio data
   public updatePortfolioData(data: Array<{ day: number; price: number }>) {
     this.portfolioData = data
@@ -643,51 +633,6 @@ export default class BattleScene extends Phaser.Scene {
     const gw = this.gridWidth()
     const startX = this.chartPadding.left
     const visibleLength = visibleCandles.length
-
-    // Draw S&P 500 line (gray)
-    if (this.sp500Data.length > 0) {
-      // Only draw S&P500 data up to visible length (current day)
-      const sp500VisibleData = this.sp500Data.slice(0, visibleLength)
-      
-      if (sp500VisibleData.length > 0) {
-        this.comparisonGraphics.lineStyle(2, this.SP500_COLOR, 0.7)
-        this.comparisonGraphics.beginPath()
-
-        sp500VisibleData.forEach((point, index) => {
-          const slotIndex = this.candleSlotIndex(visibleLength, index)
-          const x = startX + (slotIndex + 0.5) * gw - this.scrollOffsetX
-          const y = this.priceToY(point.price, minPrice, maxPrice, priceRange)
-
-          if (index === 0) {
-            this.comparisonGraphics!.moveTo(x, y)
-          } else {
-            this.comparisonGraphics!.lineTo(x, y)
-          }
-        })
-
-        this.comparisonGraphics.strokePath()
-
-        // S&P 500 label
-        const lastPoint = sp500VisibleData[sp500VisibleData.length - 1]
-        const lastIndex = sp500VisibleData.length - 1
-        const slotIndex = this.candleSlotIndex(visibleLength, lastIndex)
-        const x = startX + (slotIndex + 0.5) * gw - this.scrollOffsetX
-        const y = this.priceToY(lastPoint.price, minPrice, maxPrice, priceRange)
-
-        try {
-          const label = this.add.text(x + 5, y - 10, 'S&P 500', {
-            fontSize: `${Math.max(10, this.labelFontSize - 2)}px`,
-            color: '#94a3b8',
-            backgroundColor: '#1e293b',
-            padding: { x: 4, y: 2 },
-          })
-          label.setOrigin(0, 0.5)
-          this.priceLabels.push(label)
-        } catch (e) {
-          // Skip label if creation fails
-        }
-      }
-    }
 
     // Draw Portfolio line (gold)
     if (this.portfolioData.length > 0) {
@@ -732,12 +677,12 @@ export default class BattleScene extends Phaser.Scene {
         }
       }
 
-      // Golden aura effect when portfolio > S&P 500
-      if (this.sp500Data.length > 0 && this.portfolioData.length > 0) {
+      // Golden aura effect when portfolio is positive
+      if (this.portfolioData.length > 0) {
         const portfolioLast = this.portfolioData[this.portfolioData.length - 1]
-        const sp500Last = this.sp500Data[this.sp500Data.length - 1]
+        const aum = this.portfolioData[0]?.price || 0
 
-        if (portfolioLast.price > sp500Last.price && this.auraEffect) {
+        if (portfolioLast.price > aum && this.auraEffect) {
           // Draw golden glow around chart edges
           this.auraEffect.lineStyle(4, this.PORTFOLIO_COLOR, 0.3)
           this.auraEffect.strokeRect(
