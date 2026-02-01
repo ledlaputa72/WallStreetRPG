@@ -93,9 +93,9 @@ export function SelectionOverlay({
         exit={{ opacity: 0, y: 20 }}
         className="w-full h-full bg-card flex flex-col overflow-hidden"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 md:p-6 border-b border-primary/20 flex-shrink-0">
-          <h2 className="text-xl md:text-2xl font-bold">{title}</h2>
+        {/* Header - Sticky */}
+        <div className="sticky top-0 z-10 flex items-center justify-between p-2 md:p-4 lg:p-6 border-b border-primary/20 flex-shrink-0 bg-card">
+          <h2 className="text-lg md:text-xl lg:text-2xl font-bold">{title}</h2>
           {onClose && (
             <Button
               variant="ghost"
@@ -108,33 +108,65 @@ export function SelectionOverlay({
           )}
         </div>
 
-        {/* Capital Display */}
-        <div className="p-3 md:p-4 bg-primary/10 border-b border-primary/20 flex-shrink-0">
-          <div className="flex items-center justify-between gap-2 text-xs md:text-sm">
+        {/* Capital Display - Sticky */}
+        <div className="sticky top-[3rem] md:top-[4rem] lg:top-[5rem] z-10 p-2 md:p-3 lg:p-4 bg-primary/10 border-b border-primary/20 flex-shrink-0">
+          <div className="flex items-center justify-between gap-1 md:gap-2 text-[10px] md:text-xs lg:text-sm">
             <div className="flex-1">
               <div className="text-muted-foreground">Available Capital</div>
-              <div className="text-lg md:text-xl font-bold">${availableCapital.toLocaleString()}</div>
+              <div className="text-sm md:text-lg lg:text-xl font-bold">${availableCapital.toLocaleString()}</div>
             </div>
             <div className="flex-1 text-center">
               <div className="text-muted-foreground">Selected Cost</div>
-              <div className={`text-lg md:text-xl font-bold ${totalSelectedCost > availableCapital ? 'text-red-500' : ''}`}>
+              <div className={`text-sm md:text-lg lg:text-xl font-bold ${totalSelectedCost > availableCapital ? 'text-red-500' : ''}`}>
                 ${totalSelectedCost.toLocaleString()}
               </div>
             </div>
             <div className="flex-1 text-right">
               <div className="text-muted-foreground">Remaining</div>
-              <div className={`text-lg md:text-xl font-bold ${remainingCapital < 0 ? 'text-red-500' : 'text-green-500'}`}>
+              <div className={`text-sm md:text-lg lg:text-xl font-bold ${remainingCapital < 0 ? 'text-red-500' : 'text-green-500'}`}>
                 ${remainingCapital.toLocaleString()}
               </div>
             </div>
           </div>
         </div>
 
+        {/* Start Button - Sticky, positioned right after capital display */}
+        {showCompleteButton && onComplete ? (
+          <div className="sticky top-[6.5rem] md:top-[8rem] lg:top-[10rem] z-10 p-2 md:p-3 lg:p-4 border-b border-primary/20 flex-shrink-0 bg-card">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10px] md:text-xs lg:text-sm text-muted-foreground flex-1">
+                {revealedCards.size === 0
+                  ? 'Click a card to reveal it'
+                  : selectedCards.size === 0
+                  ? 'Click a revealed card to select it'
+                  : `${selectedCards.size} card${selectedCards.size > 1 ? 's' : ''} selected`}
+              </div>
+              <Button 
+                onClick={onComplete} 
+                size="sm"
+                disabled={!selectedCards || selectedCards.size === 0}
+                className="flex-shrink-0 text-xs md:text-sm px-3 md:px-6 h-8 md:h-10"
+              >
+                {layout === 'initial' ? 'Start Game' : 'Start Battle'} {selectedCards && selectedCards.size > 0 && `(${selectedCards.size})`}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-2 md:p-3 border-b border-primary/20 flex-shrink-0">
+            <div className="text-center text-[10px] md:text-xs lg:text-sm text-muted-foreground">
+              {revealedCards.size === 0
+                ? 'Click a card to reveal it'
+                : selectedCards.size === 0
+                ? 'Click a revealed card to select it'
+                : `${selectedCards.size} card${selectedCards.size > 1 ? 's' : ''} selected`}
+            </div>
+          </div>
+        )}
+
         {/* Cards Grid - Scrollable */}
-        <div className="flex-1 overflow-y-auto min-h-0 flex items-center justify-center">
+        <div className="flex-1 overflow-y-auto min-h-0">
           <div 
-            className={`grid ${gridCols} grid-rows-3 gap-2 md:gap-3 p-2 md:p-3`}
-            style={{ transform: 'scale(0.9)', transformOrigin: 'center' }}
+            className={`grid ${gridCols} grid-rows-3 gap-1 md:gap-2 lg:gap-3 p-1 md:p-2 lg:p-3`}
           >
             <AnimatePresence>
               {cards.map((card, index) => {
@@ -175,7 +207,7 @@ export function SelectionOverlay({
                     }}
                     disabled={isRevealed && !canAfford && !isSelected}
                     className={`
-                      w-full h-full min-h-[140px] rounded-lg border-2 p-2 md:p-3
+                      w-full h-full min-h-[100px] md:min-h-[120px] lg:min-h-[140px] rounded-lg border-2 p-1 md:p-2 lg:p-3
                       flex flex-col items-center justify-center
                       transition-all duration-300
                       ${isSelected ? 'cursor-pointer' : isRevealed && !canAfford ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
@@ -195,7 +227,7 @@ export function SelectionOverlay({
                         animate={{ rotateY: 180 }}
                         className="w-full h-full flex flex-col items-center justify-center gap-1 md:gap-2 p-1"
                       >
-                        <div className="text-2xl md:text-3xl mb-1">?</div>
+                        <div className="text-xl md:text-2xl lg:text-3xl mb-1">?</div>
                         {priceInfo && (
                           <>
                             <div
@@ -239,7 +271,7 @@ export function SelectionOverlay({
                         </div>
 
                         {/* Symbol */}
-                        <div className="text-lg md:text-xl font-bold">{card.symbol}</div>
+                        <div className="text-sm md:text-lg lg:text-xl font-bold">{card.symbol}</div>
 
                         {/* Stock Name */}
                         <div className="text-[10px] md:text-xs text-center text-muted-foreground line-clamp-1">
@@ -295,34 +327,6 @@ export function SelectionOverlay({
             })}
           </AnimatePresence>
           </div>
-        </div>
-
-        {/* Instructions and Button Container - Fixed at bottom */}
-        <div 
-          className="p-4 md:p-6 border-t border-primary/20 flex-shrink-0 space-y-2 bg-card"
-          style={{ transform: 'translateY(-5vh)' }}
-        >
-          <div className="text-center text-xs md:text-sm text-muted-foreground">
-            {revealedCards.size === 0
-              ? 'Click a card to reveal it'
-              : selectedCards.size === 0
-              ? 'Click a revealed card to select it'
-              : `${selectedCards.size} card${selectedCards.size > 1 ? 's' : ''} selected`}
-          </div>
-
-          {/* Complete Button (for initial draft) */}
-          {showCompleteButton && onComplete && (
-            <div className="flex justify-center">
-              <Button 
-                onClick={onComplete} 
-                size="lg"
-                disabled={!selectedCards || selectedCards.size === 0}
-                className="w-full md:w-auto"
-              >
-                Start Game {selectedCards && selectedCards.size > 0 && `(${selectedCards.size} selected)`}
-              </Button>
-            </div>
-          )}
         </div>
       </motion.div>
     </motion.div>
