@@ -70,8 +70,8 @@ export function StartDashboard({ onStart }: StartDashboardProps) {
             <CardTitle className="text-2xl md:text-3xl font-bold text-center">
               Market Beat - New Game
             </CardTitle>
-            <CardDescription className="text-center">
-              Select your initial capital and start your investment journey
+            <CardDescription className="text-center text-xs sm:text-sm">
+              Select your initial capital and start investing
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col space-y-4 overflow-y-auto">
@@ -184,7 +184,7 @@ export function StartDashboard({ onStart }: StartDashboardProps) {
             {/* Victory Conditions */}
             <div className="space-y-3">
               <label className="text-sm font-semibold">Victory Conditions</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <Card>
                   <CardContent className="pt-3 pb-3">
                     <div className="flex items-center gap-2 mb-2">
@@ -194,8 +194,8 @@ export function StartDashboard({ onStart }: StartDashboardProps) {
                     <div className="text-xl font-bold">
                       ${targetProfit.toLocaleString()}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Achieve 50% gain from initial capital
+                    <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                      Achieve 50% gain
                     </div>
                   </CardContent>
                 </Card>
@@ -217,8 +217,8 @@ export function StartDashboard({ onStart }: StartDashboardProps) {
                       />
                       <span className="text-xl font-bold">%</span>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Outperform S&P 500 by this margin
+                    <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                      Beat S&P 500
                     </div>
                   </CardContent>
                 </Card>
