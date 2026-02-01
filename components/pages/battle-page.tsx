@@ -102,6 +102,7 @@ export function BattlePage() {
 
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const speedMultiplierRef = useRef<SpeedMultiplier>(speedMultiplier)
+  const openedQuarterlyDraftsRef = useRef<Set<number>>(new Set())
 
   useEffect(() => {
     speedMultiplierRef.current = speedMultiplier
@@ -240,6 +241,9 @@ export function BattlePage() {
     setGamePhase('playing')
     setChartMode('portfolio')
     useGameStore.setState({ isPlaying: true, currentDayIndex: 0 })
+    
+    // Reset quarterly drafts tracking for new game
+    openedQuarterlyDraftsRef.current.clear()
   }, [selectedYear, setSP500Data, updatePositionPrice])
 
   // Handle draft completion - create portfolio positions from selected cards
@@ -322,7 +326,15 @@ export function BattlePage() {
       }
 
       // Check for quarterly drafts (days 63, 126, 189)
-      if (currentDay === 63 || currentDay === 126 || currentDay === 189) {
+      // Only open if not already opened for this quarter and not already in quarterly-draft phase
+      if (
+        (currentDay === 63 || currentDay === 126 || currentDay === 189) &&
+        !openedQuarterlyDraftsRef.current.has(currentDay) &&
+        gamePhase !== 'quarterly-draft'
+      ) {
+        // Mark this quarter as opened
+        openedQuarterlyDraftsRef.current.add(currentDay)
+        
         useGameStore.setState({ isPlaying: false })
         if (animationIntervalRef.current) {
           clearInterval(animationIntervalRef.current)
