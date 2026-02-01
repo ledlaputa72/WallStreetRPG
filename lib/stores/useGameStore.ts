@@ -242,6 +242,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       unrealizedProfit: unrealized,
       totalAssets: total,
     })
+    
+    return total
   },
   
   calculatePortfolioReturn: () => {
