@@ -322,8 +322,11 @@ export function BattlePage() {
 
     const tick = () => {
       // Check current game phase from ref (always up-to-date)
+      // Store in variable to avoid TypeScript narrowing issues
+      const currentGamePhase = gamePhaseRef.current
+      
       // Also check if quarterly draft is being opened to prevent duplicates
-      if (gamePhaseRef.current !== 'playing' || isOpeningQuarterlyDraftRef.current) {
+      if (currentGamePhase !== 'playing' || isOpeningQuarterlyDraftRef.current) {
         return
       }
 
@@ -345,7 +348,7 @@ export function BattlePage() {
       if (
         (currentDay === 63 || currentDay === 126 || currentDay === 189) &&
         !openedQuarterlyDraftsRef.current.has(currentDay) &&
-        gamePhaseRef.current !== 'quarterly-draft' &&
+        currentGamePhase !== 'quarterly-draft' &&
         !isOpeningQuarterlyDraftRef.current
       ) {
         // Set flag to prevent duplicate openings
