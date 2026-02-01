@@ -345,10 +345,11 @@ export function BattlePage() {
 
       // Check for quarterly drafts (days 63, 126, 189)
       // Only open if not already opened for this quarter, not already in quarterly-draft phase, and not currently opening
+      // Note: Type assertion needed here because TypeScript narrows currentGamePhase to 'playing' after the check above
       if (
         (currentDay === 63 || currentDay === 126 || currentDay === 189) &&
         !openedQuarterlyDraftsRef.current.has(currentDay) &&
-        currentGamePhase !== 'quarterly-draft' &&
+        (currentGamePhase as GamePhase) !== 'quarterly-draft' &&
         !isOpeningQuarterlyDraftRef.current
       ) {
         // Set flag to prevent duplicate openings
