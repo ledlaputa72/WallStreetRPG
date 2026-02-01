@@ -131,9 +131,13 @@ export function SelectionOverlay({
         </div>
 
         {/* Cards Grid - Scrollable */}
-        <div className={`grid ${gridCols} grid-rows-3 gap-2 md:gap-3 flex-1 overflow-y-auto min-h-0 p-2 md:p-3`}>
-          <AnimatePresence>
-            {cards.map((card, index) => {
+        <div className="flex-1 overflow-y-auto min-h-0 flex items-center justify-center">
+          <div 
+            className={`grid ${gridCols} grid-rows-3 gap-2 md:gap-3 p-2 md:p-3`}
+            style={{ transform: 'scale(0.9)', transformOrigin: 'center' }}
+          >
+            <AnimatePresence>
+              {cards.map((card, index) => {
               const isRevealed = revealedCards.has(card.id)
               const isSelected = selectedCards.has(card.id)
               const priceInfo = cardPrices.get(card.id)
@@ -290,10 +294,14 @@ export function SelectionOverlay({
               )
             })}
           </AnimatePresence>
+          </div>
         </div>
 
         {/* Instructions and Button Container - Fixed at bottom */}
-        <div className="p-4 md:p-6 border-t border-primary/20 flex-shrink-0 space-y-2 bg-card">
+        <div 
+          className="p-4 md:p-6 border-t border-primary/20 flex-shrink-0 space-y-2 bg-card"
+          style={{ transform: 'translateY(-5vh)' }}
+        >
           <div className="text-center text-xs md:text-sm text-muted-foreground">
             {revealedCards.size === 0
               ? 'Click a card to reveal it'
