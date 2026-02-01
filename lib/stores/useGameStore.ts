@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { StockSector, StockRarity } from '@/lib/types/stock'
 
 export interface MarketCandle {
   time: string
@@ -13,8 +14,8 @@ export interface PortfolioPosition {
   id: string
   symbol: string
   stockName: string
-  sector: string
-  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  sector: StockSector
+  rarity: StockRarity
   buyPrice: number // Inflation-adjusted price at purchase
   quantity: number
   currentPrice: number // Current inflation-adjusted price
