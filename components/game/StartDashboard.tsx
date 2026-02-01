@@ -184,40 +184,40 @@ export function StartDashboard({ onStart }: StartDashboardProps) {
             {/* Victory Conditions */}
             <div className="space-y-3">
               <label className="text-sm font-semibold">Victory Conditions</label>
-              <div className="grid grid-cols-2 gap-3">
-                <Card>
-                  <CardContent className="pt-3 pb-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Target className="w-4 h-4 text-primary" />
-                      <span className="font-semibold text-sm">Target Assets</span>
+              <div className="flex flex-row gap-2">
+                <Card className="flex-1">
+                  <CardContent className="pt-2 pb-2 px-3">
+                    <div className="flex items-center gap-1 mb-1">
+                      <Target className="w-3 h-3 text-primary flex-shrink-0" />
+                      <span className="font-semibold text-xs">Target Assets</span>
                     </div>
-                    <div className="text-xl font-bold">
+                    <div className="text-lg font-bold">
                       ${targetProfit.toLocaleString()}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       Achieve 50% gain
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardContent className="pt-3 pb-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="w-4 h-4 text-primary" />
-                      <span className="font-semibold text-sm">Alpha Target</span>
+                <Card className="flex-1">
+                  <CardContent className="pt-2 pb-2 px-3">
+                    <div className="flex items-center gap-1 mb-1">
+                      <TrendingUp className="w-3 h-3 text-primary flex-shrink-0" />
+                      <span className="font-semibold text-xs">Alpha Target</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <input
                         type="number"
                         value={alphaTarget}
                         onChange={(e) => setAlphaTarget(Number(e.target.value))}
                         min={0}
                         max={50}
-                        className="w-16 px-2 py-1 bg-background border border-primary/20 rounded text-xl font-bold text-sm"
+                        className="w-12 px-1 py-0.5 bg-background border border-primary/20 rounded text-base font-bold text-xs"
                       />
-                      <span className="text-xl font-bold">%</span>
+                      <span className="text-lg font-bold">%</span>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       Beat S&P 500
                     </div>
                   </CardContent>
