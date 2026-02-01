@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { useGameStore } from '@/lib/stores/useGameStore'
 import { useChartView } from '../hooks/useChartView'
-import { SECTOR_COLORS, RARITY_COLORS } from '@/lib/types/stock'
+import { SECTOR_COLORS, RARITY_COLORS, type StockSector, type StockRarity } from '@/lib/types/stock'
 import { LineChart, Line, ResponsiveContainer } from 'recharts'
 
 interface QuickInventoryProps {
@@ -31,7 +31,7 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
 
   // Generate mini chart data for each position (last 20 candles)
   const positionsWithCharts = useMemo(() => {
-    return portfolio.map(position => {
+    return portfolio.map((position) => {
       const last20Candles = position.data
         .slice(Math.max(0, position.currentDayIndex - 19), position.currentDayIndex + 1)
         .map((candle, index) => ({
@@ -90,8 +90,8 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
       >
         {positionsWithCharts.map((position) => {
           const isActive = activeStockId === position.id
-          const sectorColor = SECTOR_COLORS[position.sector]
-          const rarityColor = RARITY_COLORS[position.rarity]
+          const sectorColor = SECTOR_COLORS[position.sector as StockSector]
+          const rarityColor = RARITY_COLORS[position.rarity as StockRarity]
           const isProfit = position.profit >= 0
 
           return (

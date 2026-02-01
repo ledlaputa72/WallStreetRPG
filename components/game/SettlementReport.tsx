@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { useGameStore } from '@/lib/stores/useGameStore'
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 import { Trophy, TrendingUp, TrendingDown, Award, Coins } from 'lucide-react'
-import { RARITY_COLORS } from '@/lib/types/stock'
+import { RARITY_COLORS, type StockRarity } from '@/lib/types/stock'
 
 interface SettlementReportProps {
   onNewGame: () => void
@@ -206,8 +206,8 @@ export function SettlementReport({ onNewGame, onContinue }: SettlementReportProp
                           <Badge
                             variant="outline"
                             style={{
-                              borderColor: RARITY_COLORS[mvpStock.rarity],
-                              color: RARITY_COLORS[mvpStock.rarity],
+                              borderColor: RARITY_COLORS[mvpStock.rarity as StockRarity],
+                              color: RARITY_COLORS[mvpStock.rarity as StockRarity],
                             }}
                           >
                             {mvpStock.rarity}
