@@ -42,7 +42,7 @@ export async function fetchHistoricalStockData(
         const result = await response.json()
         if (result.success && result.data && result.data.length > 0) {
           // Apply inflation correction
-          const adjustedData = applyInflationToCandles(result.data, year)
+          const adjustedData: MarketCandle[] = applyInflationToCandles(result.data, year)
           
           return {
             symbol: result.symbol || symbol,
@@ -61,7 +61,7 @@ export async function fetchHistoricalStockData(
     
     if (result.success && result.data && result.data.length > 0) {
       // Apply inflation correction
-      const adjustedData = applyInflationToCandles(result.data, result.year || year)
+      const adjustedData: MarketCandle[] = applyInflationToCandles(result.data, result.year || year)
       
       return {
         symbol: result.symbol || symbol,
@@ -98,7 +98,7 @@ export async function fetchSP500Data(year: number): Promise<SP500DataResult> {
     const sp500Data = generateSP500Data(year)
     
     // Apply inflation correction
-    const adjustedData = applyInflationToCandles(sp500Data, year)
+    const adjustedData: MarketCandle[] = applyInflationToCandles(sp500Data, year)
     
     return {
       year,

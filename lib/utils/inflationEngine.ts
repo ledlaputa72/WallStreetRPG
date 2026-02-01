@@ -3,6 +3,8 @@
  * Uses Consumer Price Index (CPI) data to adjust for inflation
  */
 
+import type { MarketCandle } from '../stores/useGameStore'
+
 // Historical CPI data (base year = 2024, value = 100)
 // Simplified CPI table - in production, use comprehensive historical data
 export const CPI_TABLE: Record<number, number> = {
@@ -161,15 +163,16 @@ export function applyInflation(price: number, year: number): number {
  * @returns Array of inflation-adjusted candles
  */
 export function applyInflationToCandles(
-  candles: Array<{ open: number; high: number; low: number; close: number; [key: string]: any }>,
+  candles: MarketCandle[],
   year: number
-): Array<{ open: number; high: number; low: number; close: number; [key: string]: any }> {
+): MarketCandle[] {
   return candles.map(candle => ({
-    ...candle,
+    time: candle.time,
     open: applyInflation(candle.open, year),
     high: applyInflation(candle.high, year),
     low: applyInflation(candle.low, year),
     close: applyInflation(candle.close, year),
+    volume: candle.volume,
   }))
 }
 

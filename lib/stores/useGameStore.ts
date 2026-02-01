@@ -104,165 +104,172 @@ const initialState = {
   selectedPositionId: null,
 }
 
-export const useGameStore = create<GameStore>((set, get) => ({
-  ...initialState,
-  
-  setAUM: (aum) => {
-    // Calculate daily capital inflow based on AUM
-    const baseInflow = aum * 0.001 // 0.1% of AUM per day
-    const dailyInflow = baseInflow * (1 + get().ceoCapitalBonus)
+export const useGameStore = create<GameStore>((set, get) => {
+  return {
+    ...initialState,
     
-    // Calculate target profit (e.g., 50% gain)
-    const targetProfit = aum * 1.5
+    setAUM: (aum) => {
+      // Calculate daily capital inflow based on AUM
+      const baseInflow = aum * 0.001 // 0.1% of AUM per day
+      const dailyInflow = baseInflow * (1 + get().ceoCapitalBonus)
+      
+      // Calculate target profit (e.g., 50% gain)
+      const targetProfit = aum * 1.5
+      
+      set({
+        aum,
+        dailyCapitalInflow: dailyInflow,
+        targetProfit,
+        totalAssets: aum,
+      })
+    },
     
-    set({
-      aum,
-      dailyCapitalInflow: dailyInflow,
-      targetProfit,
-      totalAssets: aum,
-    })
-  },
-  
-  setSelectedYear: (year) => set({ selectedYear: year }),
-  
-  addToPortfolio: (position) => {
-    const current = get().portfolioAssets
-    if (current.length >= get().maxPortfolioSize) {
-      console.warn('Portfolio is full')
-      return
-    }
-    set({ portfolioAssets: [...current, position] })
-    get().calculatePortfolioValue()
-  },
-  
-  removeFromPortfolio: (id) => {
-    set({
-      portfolioAssets: get().portfolioAssets.filter(p => p.id !== id),
-    })
-    get().calculatePortfolioValue()
-  },
-  
-  updatePositionPrice: (id, price, dayIndex) => {
-    set({
-      portfolioAssets: get().portfolioAssets.map(p =>
-        p.id === id
-          ? { ...p, currentPrice: price, currentDayIndex: dayIndex }
-          : p
-      ),
-    })
-    get().calculatePortfolioValue()
-  },
-  
-  sellPosition: (id) => {
-    const position = get().portfolioAssets.find(p => p.id === id)
-    if (!position) return
+    setSelectedYear: (year) => set({ selectedYear: year }),
     
-    const profit = (position.currentPrice - position.buyPrice) * position.quantity
-    const saleValue = position.currentPrice * position.quantity
+    addToPortfolio: (position) => {
+      const current = get().portfolioAssets
+      if (current.length >= get().maxPortfolioSize) {
+        console.warn('Portfolio is full')
+        return
+      }
+      set({ portfolioAssets: [...current, position] })
+      get().calculatePortfolioValue()
+    },
     
-    set({
-      realizedProfit: get().realizedProfit + saleValue,
-      portfolioAssets: get().portfolioAssets.filter(p => p.id !== id),
-    })
-    get().calculatePortfolioValue()
-  },
-  
-  buyMore: (id, additionalQuantity) => {
-    const position = get().portfolioAssets.find(p => p.id === id)
-    if (!position) return
+    removeFromPortfolio: (id) => {
+      set({
+        portfolioAssets: get().portfolioAssets.filter(p => p.id !== id),
+      })
+      get().calculatePortfolioValue()
+    },
     
-    const cost = position.currentPrice * additionalQuantity
-    if (cost > get().realizedProfit) {
-      console.warn('Insufficient funds')
-      return
-    }
+    updatePositionPrice: (id, price, dayIndex) => {
+      set({
+        portfolioAssets: get().portfolioAssets.map(p =>
+          p.id === id
+            ? { ...p, currentPrice: price, currentDayIndex: dayIndex }
+            : p
+        ),
+      })
+      get().calculatePortfolioValue()
+    },
     
-    // Calculate new average buy price
-    const totalCost = position.buyPrice * position.quantity + cost
-    const newQuantity = position.quantity + additionalQuantity
-    const newBuyPrice = totalCost / newQuantity
+    sellPosition: (id) => {
+      const position = get().portfolioAssets.find(p => p.id === id)
+      if (!position) return
+      
+      const profit = (position.currentPrice - position.buyPrice) * position.quantity
+      const saleValue = position.currentPrice * position.quantity
+      
+      set({
+        realizedProfit: get().realizedProfit + saleValue,
+        portfolioAssets: get().portfolioAssets.filter(p => p.id !== id),
+      })
+      get().calculatePortfolioValue()
+    },
     
-    set({
-      realizedProfit: get().realizedProfit - cost,
-      portfolioAssets: get().portfolioAssets.map(p =>
-        p.id === id
-          ? { ...p, buyPrice: newBuyPrice, quantity: newQuantity }
-          : p
-      ),
-    })
-    get().calculatePortfolioValue()
-  },
-  
-  setSP500Data: (data) => {
-    set({
-      sp500Data: data,
-      sp500CurrentPrice: data.length > 0 ? data[0].close : 0,
-    })
-  },
-  
-  updateSP500Price: (price) => {
-    set({ sp500CurrentPrice: price })
-  },
-  
-  incrementDay: () => {
-    const current = get().currentDayIndex
-    if (current >= 252) {
-      set({ isPlaying: false })
-      return
-    }
+    buyMore: (id, additionalQuantity) => {
+      const position = get().portfolioAssets.find(p => p.id === id)
+      if (!position) return
+      
+      const cost = position.currentPrice * additionalQuantity
+      if (cost > get().realizedProfit) {
+        console.warn('Insufficient funds')
+        return
+      }
+      
+      // Calculate new average buy price
+      const totalCost = position.buyPrice * position.quantity + cost
+      const newQuantity = position.quantity + additionalQuantity
+      const newBuyPrice = totalCost / newQuantity
+      
+      set({
+        realizedProfit: get().realizedProfit - cost,
+        portfolioAssets: get().portfolioAssets.map(p =>
+          p.id === id
+            ? { ...p, buyPrice: newBuyPrice, quantity: newQuantity }
+            : p
+        ),
+      })
+      get().calculatePortfolioValue()
+    },
     
-    // Add daily capital inflow
-    const newRealized = get().realizedProfit + get().dailyCapitalInflow
+    setSP500Data: (data) => {
+      set({
+        sp500Data: data,
+        sp500CurrentPrice: data.length > 0 ? data[0].close : 0,
+      })
+    },
     
-    set({
-      currentDayIndex: current + 1,
-      realizedProfit: newRealized,
-    })
+    updateSP500Price: (price) => {
+      set({ sp500CurrentPrice: price })
+    },
     
-    get().calculatePortfolioValue()
-  },
-  
-  resetGame: () => set(initialState),
-  
-  setMentalState: (state) => {
-    set({
-      mentalState: { ...get().mentalState, ...state },
-    })
-  },
-  
-  calculatePortfolioValue: () => {
-    const positions = get().portfolioAssets
-    const unrealized = positions.reduce(
-      (sum, p) => sum + p.currentPrice * p.quantity,
-      0
-    )
-    const total = get().realizedProfit + unrealized
+    incrementDay: () => {
+      const current = get().currentDayIndex
+      if (current >= 252) {
+        set({ isPlaying: false })
+        return
+      }
+      
+      // Add daily capital inflow
+      const newRealized = get().realizedProfit + get().dailyCapitalInflow
+      
+      set({
+        currentDayIndex: current + 1,
+        realizedProfit: newRealized,
+      })
+      
+      get().calculatePortfolioValue()
+    },
     
-    set({
-      unrealizedProfit: unrealized,
-      totalAssets: total,
-    })
+    resetGame: () => set(initialState),
     
-    return total
-  },
-  
-  calculatePortfolioReturn: () => {
-    const aum = get().aum
-    if (!aum || aum === 0) return 0
-    const totalAssets = get().totalAssets
-    return ((totalAssets - aum) / aum) * 100
-  },
-  
-  calculateSP500Return: () => {
-    const sp500Data = get().sp500Data
-    if (!sp500Data || sp500Data.length === 0) return 0
+    setMentalState: (state) => {
+      set({
+        mentalState: { ...get().mentalState, ...state },
+      })
+    },
     
-    const startPrice = sp500Data[0].close
-    const currentPrice = get().sp500CurrentPrice
-    if (startPrice === 0) return 0
+    calculatePortfolioValue: (): number => {
+      const positions = get().portfolioAssets
+      const unrealized = positions.reduce(
+        (sum, p) => {
+          const currentPrice = p.currentPrice ?? 0
+          const quantity = p.quantity ?? 0
+          return sum + currentPrice * quantity
+        },
+        0
+      )
+      const realizedProfit = get().realizedProfit ?? 0
+      const total = realizedProfit + unrealized
+      
+      set({
+        unrealizedProfit: unrealized,
+        totalAssets: total,
+      })
+      
+      return total
+    },
     
-    return ((currentPrice - startPrice) / startPrice) * 100
-  },
-  
-  setSelectedPositionId: (id) => set({ selectedPositionId: id }),
-}))
+    calculatePortfolioReturn: (): number => {
+      const aum = get().aum
+      if (!aum || aum === 0) return 0
+      const totalAssets = get().totalAssets ?? 0
+      return ((totalAssets - aum) / aum) * 100
+    },
+    
+    calculateSP500Return: (): number => {
+      const sp500Data = get().sp500Data
+      if (!sp500Data || sp500Data.length === 0) return 0
+      
+      const startPrice = sp500Data[0]?.close ?? 0
+      const currentPrice = get().sp500CurrentPrice ?? 0
+      if (startPrice === 0) return 0
+      
+      return ((currentPrice - startPrice) / startPrice) * 100
+    },
+    
+    setSelectedPositionId: (id) => set({ selectedPositionId: id }),
+  }
+})
