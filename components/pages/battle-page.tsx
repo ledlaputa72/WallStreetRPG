@@ -76,13 +76,19 @@ export function BattlePage() {
   }, [realizedProfit])
   
   // For initial draft, use AUM as available capital
+  // For quarterly draft, use realizedProfit directly (which includes dailyCapitalInflow)
   const draftAvailableCapital = useMemo(() => {
     if (gamePhase === 'draft') {
       return aum || 0
     }
-    // For quarterly draft, use calculated availableCapital
+    if (gamePhase === 'quarterly-draft') {
+      // For quarterly draft, use realizedProfit directly
+      // This ensures we get the current value even if availableCapital hasn't updated yet
+      return Math.max(0, realizedProfit)
+    }
+    // For other phases, use calculated availableCapital
     return availableCapital
-  }, [gamePhase, aum, availableCapital])
+  }, [gamePhase, aum, availableCapital, realizedProfit])
   
   // Phaser game hook
   const {
@@ -360,9 +366,11 @@ export function BattlePage() {
         setDraftCards(cards)
         setSelectedCardIds(new Set())
         
-        // Get current available capital (realizedProfit already includes dailyCapitalInflow)
+        // Get current available capital and AUM
         const store = useGameStore.getState()
         const currentCapital = Math.max(0, store.realizedProfit)
+        const aumValue = store.aum || 0
+        const currentDayIndex = store.currentDayIndex
         
         // Fetch prices for quarterly draft cards (async)
         ;(async () => {
@@ -370,17 +378,29 @@ export function BattlePage() {
           for (const card of cards) {
             const stockResult = await fetchHistoricalStockData(card.symbol, selectedYear || 2020)
             if (stockResult.success && stockResult.data.length > 0) {
-              const price = stockResult.data[0].close
-              // For quarterly, allow buying with available capital
-              const maxQuantity = Math.floor(currentCapital / price)
-              const quantity = Math.max(1, maxQuantity)
+              // Use current day price for quarterly draft
+              const price = stockResult.data[currentDayIndex]?.close ?? stockResult.data[0].close
+              
+              // For quarterly draft, use AUM-based investment (15-25% of AUM)
+              // This ensures cards are priced appropriately regardless of remaining capital
+              const investmentPercentage = 0.15 + Math.random() * 0.10 // 15% to 25% of AUM
+              const targetInvestment = aumValue * investmentPercentage
+              
+              // Calculate quantity based on AUM percentage, but don't exceed available capital
+              const quantity = Math.max(1, Math.floor(targetInvestment / price))
               const totalCost = price * quantity
+              
+              // If calculated cost exceeds available capital, adjust quantity
+              const adjustedQuantity = totalCost > currentCapital 
+                ? Math.max(1, Math.floor(currentCapital / price))
+                : quantity
+              const adjustedTotalCost = price * adjustedQuantity
               
               priceMap.set(card.id, {
                 cardId: card.id,
                 price,
-                quantity,
-                totalCost,
+                quantity: adjustedQuantity,
+                totalCost: adjustedTotalCost,
               })
             }
           }
@@ -609,10 +629,13 @@ export function BattlePage() {
 
     addToPortfolio(position)
     
-    // Deduct capital using actual price (not priceInfo.totalCost which might be based on different price)
-    const actualTotalCost = actualPrice * priceInfo.quantity
-    const newCapital = Math.max(0, currentCapital - actualTotalCost)
+    // Deduct capital using priceInfo.totalCost (which was calculated based on current day price)
+    // This ensures consistency between card display and actual deduction
+    const newCapital = Math.max(0, currentCapital - priceInfo.totalCost)
     useGameStore.setState({ realizedProfit: newCapital })
+    
+    // Ensure totalAssets is recalculated after adding position
+    useGameStore.getState().calculatePortfolioValue()
     
     setSelectedCardIds(new Set([card.id]))
 
