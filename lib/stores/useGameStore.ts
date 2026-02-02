@@ -120,7 +120,9 @@ export const useGameStore = create<GameStore>((set, get) => {
         aum,
         dailyCapitalInflow: dailyInflow,
         targetProfit,
-        totalAssets: aum,
+        // Don't set totalAssets here - it will be calculated by calculatePortfolioValue()
+        // Initial state: no portfolio yet, so totalAssets = realizedProfit (which is 0 initially)
+        totalAssets: 0,
       })
     },
     

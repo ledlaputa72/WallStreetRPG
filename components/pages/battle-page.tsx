@@ -271,12 +271,17 @@ export function BattlePage() {
       totalCost += priceInfo.totalCost
     }
 
-    // Add all positions to portfolio
-    newPositions.forEach(position => addToPortfolio(position))
-
-    // Update realized profit (remaining capital after purchases)
+    // Update realized profit FIRST (remaining capital after purchases)
+    // This must be done before adding positions so calculatePortfolioValue uses correct realizedProfit
     const initialAUM = aum || 0
     useGameStore.setState({ realizedProfit: initialAUM - totalCost })
+
+    // Add all positions to portfolio
+    // calculatePortfolioValue will be called for each position, using the correct realizedProfit
+    newPositions.forEach(position => addToPortfolio(position))
+    
+    // Ensure totalAssets is recalculated with final values
+    useGameStore.getState().calculatePortfolioValue()
 
     // Start simulation
     await startSimulation()
