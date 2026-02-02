@@ -267,33 +267,29 @@ export function BattlePage() {
       // Use actual first day close price from data
       const actualFirstDayPrice = stockResult.data[0].close
       
-      // IMPORTANT: Use priceInfo.totalCost (displayed on card) for consistency
-      // The card shows priceInfo.totalCost to the user, so we must use that value
-      // Even if actualFirstDayPrice differs slightly, we use priceInfo.totalCost
-      // and adjust quantity to match the displayed cost
+      // IMPORTANT: Use priceInfo.price and priceInfo.quantity (displayed on card) for consistency
+      // The card shows priceInfo.totalCost = priceInfo.price * priceInfo.quantity to the user
+      // We must use these exact values to match what was displayed
+      const cardDisplayedPrice = priceInfo.price
+      const cardDisplayedQuantity = priceInfo.quantity
       const cardDisplayedCost = priceInfo.totalCost
       
       // Verify priceInfo.price matches actual first day price
-      if (Math.abs(priceInfo.price - actualFirstDayPrice) > 0.01) {
-        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[0]=${actualFirstDayPrice}. Using card displayed cost: ${cardDisplayedCost}`)
+      if (Math.abs(cardDisplayedPrice - actualFirstDayPrice) > 0.01) {
+        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${cardDisplayedPrice}, data[0]=${actualFirstDayPrice}. Using card displayed values: price=${cardDisplayedPrice}, qty=${cardDisplayedQuantity}, cost=${cardDisplayedCost}`)
       }
 
-      // Calculate quantity based on actual price to match displayed cost
-      // This ensures the portfolio position value matches what was shown on the card
-      const adjustedQuantity = Math.max(1, Math.floor(cardDisplayedCost / actualFirstDayPrice))
-      const adjustedTotalCost = actualFirstDayPrice * adjustedQuantity
-      
-      // Create portfolio position using actual first day price for buyPrice and currentPrice
-      // But use adjustedQuantity to match the displayed cost
+      // Use card displayed price and quantity to ensure exact match with card display
+      // This ensures the portfolio position value exactly matches what was shown on the card
       const position = {
         id: `${card.symbol}-${Date.now()}-${Math.random()}`,
         symbol: card.symbol,
         stockName: card.stockName,
         sector: card.sector,
         rarity: card.rarity,
-        buyPrice: actualFirstDayPrice,  // Use actual first day close price
-        quantity: adjustedQuantity,  // Use adjusted quantity to match displayed cost
-        currentPrice: actualFirstDayPrice,  // Use actual first day close price
+        buyPrice: cardDisplayedPrice,  // Use card displayed price (matches card display)
+        quantity: cardDisplayedQuantity,  // Use card displayed quantity (matches card display)
+        currentPrice: cardDisplayedPrice,  // Use card displayed price initially
         buyDayIndex: 0,
         data: stockResult.data,
         currentDayIndex: 0,
@@ -304,7 +300,7 @@ export function BattlePage() {
       // This ensures the deducted amount matches what was displayed
       totalCost += cardDisplayedCost
       
-      console.log(`Card ${card.symbol}: displayed=${cardDisplayedCost}, actualPrice=${actualFirstDayPrice}, quantity=${adjustedQuantity}, calculated=${adjustedTotalCost}`)
+      console.log(`Card ${card.symbol}: displayedPrice=${cardDisplayedPrice}, displayedQty=${cardDisplayedQuantity}, displayedCost=${cardDisplayedCost}, actualPrice=${actualFirstDayPrice}`)
     }
 
     // Update realized profit FIRST (remaining capital after purchases)
