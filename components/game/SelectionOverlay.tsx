@@ -240,13 +240,13 @@ export function SelectionOverlay({
                               {card.sector}
                             </div>
                             <div className="text-center">
-                              <div className="text-[10px] md:text-xs text-muted-foreground">Price</div>
-                              <div className="text-xs md:text-sm font-bold">${priceInfo.price.toFixed(2)}</div>
+                              <div className="text-[10px] md:text-xs text-muted-foreground">Cost</div>
+                              <div className="text-xs md:text-sm font-bold">${priceInfo.totalCost.toLocaleString()}</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-[10px] md:text-xs text-muted-foreground">Qty × Cost</div>
+                              <div className="text-[10px] md:text-xs text-muted-foreground">Qty × Price</div>
                               <div className="text-xs md:text-sm font-bold">
-                                {priceInfo.quantity} × ${priceInfo.totalCost.toLocaleString()}
+                                {priceInfo.quantity} × ${priceInfo.price.toFixed(2)}
                               </div>
                             </div>
                           </>
