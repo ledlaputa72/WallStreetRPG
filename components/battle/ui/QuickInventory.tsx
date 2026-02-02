@@ -32,9 +32,9 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
   // Generate mini chart data for each position (last 20 candles)
   const positionsWithCharts = useMemo(() => {
     return portfolio.map((position) => {
-      // Ensure currentPrice is up to date with data
-      const currentDayData = position.data[position.currentDayIndex]
-      const actualCurrentPrice = currentDayData?.close ?? position.currentPrice
+      // Use position.currentPrice directly - it's already updated by updatePositionPrice
+      // This ensures consistency with calculatePortfolioValue which uses position.currentPrice
+      const currentPrice = position.currentPrice
       
       const last20Candles = position.data
         .slice(Math.max(0, position.currentDayIndex - 19), position.currentDayIndex + 1)
@@ -43,13 +43,12 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
           price: candle.close,
         }))
 
-      const profit = ((actualCurrentPrice - position.buyPrice) / position.buyPrice) * 100
-      const profitAmount = (actualCurrentPrice - position.buyPrice) * position.quantity
-      const totalValue = actualCurrentPrice * position.quantity
+      const profit = ((currentPrice - position.buyPrice) / position.buyPrice) * 100
+      const profitAmount = (currentPrice - position.buyPrice) * position.quantity
+      const totalValue = currentPrice * position.quantity
 
       return {
         ...position,
-        currentPrice: actualCurrentPrice, // Use actual price from data
         chartData: last20Candles,
         profit,
         profitAmount,

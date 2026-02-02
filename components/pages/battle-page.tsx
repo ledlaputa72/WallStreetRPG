@@ -192,13 +192,19 @@ export function BattlePage() {
   const startSimulation = useCallback(async () => {
     if (!selectedYear) return
 
-    // Initialize positions
+    // Positions are already created with correct buyPrice and currentPrice in handleDraftComplete
+    // No need to update prices here - they're already set to actualFirstDayPrice
+    // Just ensure calculatePortfolioValue is called to verify initial state
     const currentPortfolio = useGameStore.getState().portfolioAssets
-    currentPortfolio.forEach(position => {
-      if (position.data.length > 0) {
-        updatePositionPrice(position.id, position.data[0].close, 0)
-      }
-    })
+    if (currentPortfolio.length > 0) {
+      // Verify all positions have correct initial prices
+      currentPortfolio.forEach(position => {
+        if (position.data.length > 0 && Math.abs(position.currentPrice - position.data[0].close) > 0.01) {
+          // Only update if there's a mismatch (shouldn't happen, but just in case)
+          updatePositionPrice(position.id, position.data[0].close, 0)
+        }
+      })
+    }
 
     // Initialize chart based on mode (default: portfolio)
     const aumValue = useGameStore.getState().aum || 0
@@ -261,16 +267,24 @@ export function BattlePage() {
       // Use actual first day close price from data
       const actualFirstDayPrice = stockResult.data[0].close
       
-      // Recalculate totalCost using actual first day price and quantity
-      // This ensures the cost matches the actual portfolio position value
-      const actualTotalCost = actualFirstDayPrice * priceInfo.quantity
+      // IMPORTANT: Use priceInfo.totalCost (displayed on card) for consistency
+      // The card shows priceInfo.totalCost to the user, so we must use that value
+      // Even if actualFirstDayPrice differs slightly, we use priceInfo.totalCost
+      // and adjust quantity to match the displayed cost
+      const cardDisplayedCost = priceInfo.totalCost
       
       // Verify priceInfo.price matches actual first day price
       if (Math.abs(priceInfo.price - actualFirstDayPrice) > 0.01) {
-        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[0]=${actualFirstDayPrice}. Recalculating totalCost: ${actualTotalCost}`)
+        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[0]=${actualFirstDayPrice}. Using card displayed cost: ${cardDisplayedCost}`)
       }
 
+      // Calculate quantity based on actual price to match displayed cost
+      // This ensures the portfolio position value matches what was shown on the card
+      const adjustedQuantity = Math.max(1, Math.floor(cardDisplayedCost / actualFirstDayPrice))
+      const adjustedTotalCost = actualFirstDayPrice * adjustedQuantity
+      
       // Create portfolio position using actual first day price for buyPrice and currentPrice
+      // But use adjustedQuantity to match the displayed cost
       const position = {
         id: `${card.symbol}-${Date.now()}-${Math.random()}`,
         symbol: card.symbol,
@@ -278,7 +292,7 @@ export function BattlePage() {
         sector: card.sector,
         rarity: card.rarity,
         buyPrice: actualFirstDayPrice,  // Use actual first day close price
-        quantity: priceInfo.quantity,
+        quantity: adjustedQuantity,  // Use adjusted quantity to match displayed cost
         currentPrice: actualFirstDayPrice,  // Use actual first day close price
         buyDayIndex: 0,
         data: stockResult.data,
@@ -286,9 +300,11 @@ export function BattlePage() {
       }
 
       newPositions.push(position)
-      // Use actualTotalCost calculated from actualFirstDayPrice * quantity
-      // This ensures consistency between portfolio position value and deducted cost
-      totalCost += actualTotalCost
+      // Use cardDisplayedCost (what user saw on card) for totalCost calculation
+      // This ensures the deducted amount matches what was displayed
+      totalCost += cardDisplayedCost
+      
+      console.log(`Card ${card.symbol}: displayed=${cardDisplayedCost}, actualPrice=${actualFirstDayPrice}, quantity=${adjustedQuantity}, calculated=${adjustedTotalCost}`)
     }
 
     // Update realized profit FIRST (remaining capital after purchases)
@@ -306,12 +322,25 @@ export function BattlePage() {
     // realizedProfit (cash) + unrealizedProfit (stock value)
     // = (AUM - totalCost) + (sum of actualFirstDayPrice * quantity for each position)
     // = AUM (since totalCost = sum of actualFirstDayPrice * quantity)
-    useGameStore.getState().calculatePortfolioValue()
+    const finalTotalAssets = useGameStore.getState().calculatePortfolioValue()
     
     // Verify calculation: totalAssets should equal AUM at start
-    const finalTotalAssets = useGameStore.getState().totalAssets
+    const finalUnrealizedProfit = useGameStore.getState().unrealizedProfit
     if (Math.abs(finalTotalAssets - initialAUM) > 0.01) {
-      console.warn(`Total assets mismatch: expected ${initialAUM}, got ${finalTotalAssets}. totalCost=${totalCost}, remainingCash=${remainingCash}`)
+      console.error(`❌ Total assets mismatch at start:
+        Expected: ${initialAUM}
+        Got: ${finalTotalAssets}
+        Breakdown:
+        - realizedProfit (cash): ${remainingCash}
+        - unrealizedProfit (stocks): ${finalUnrealizedProfit}
+        - totalCost: ${totalCost}
+        - Sum: ${remainingCash + finalUnrealizedProfit}`)
+    } else {
+      console.log(`✅ Initial calculation correct:
+        AUM: ${initialAUM}
+        Total Assets: ${finalTotalAssets}
+        Cash: ${remainingCash}
+        Stocks: ${finalUnrealizedProfit}`)
     }
 
     // Start simulation
