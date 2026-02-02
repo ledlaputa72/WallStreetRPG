@@ -652,12 +652,24 @@ export function BattlePage() {
     // For quarterly draft, we're at currentDayIndex, so use data[currentDayIndex].close
     const actualPrice = stockResult.data[currentDayIndex]?.close ?? stockResult.data[0]?.close ?? priceInfo.price
     
+    // IMPORTANT: Use priceInfo.totalCost (displayed on card) for consistency
+    // The card shows priceInfo.totalCost to the user, so we must use that value
+    // Even if actualPrice differs slightly, we use priceInfo.totalCost
+    // and adjust quantity to match the displayed cost
+    const cardDisplayedCost = priceInfo.totalCost
+    
     // Verify priceInfo.price matches actual price
     if (Math.abs(priceInfo.price - actualPrice) > 0.01) {
-      console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[${currentDayIndex}]=${actualPrice}. Using data price`)
+      console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[${currentDayIndex}]=${actualPrice}. Using card displayed cost: ${cardDisplayedCost}`)
     }
 
-    // Create portfolio position
+    // Calculate quantity based on actual price to match displayed cost
+    // This ensures the portfolio position value matches what was shown on the card
+    const adjustedQuantity = Math.max(1, Math.floor(cardDisplayedCost / actualPrice))
+    const adjustedTotalCost = actualPrice * adjustedQuantity
+
+    // Create portfolio position using actual price for buyPrice and currentPrice
+    // But use adjustedQuantity to match the displayed cost
     const position = {
       id: `${card.symbol}-${Date.now()}-${Math.random()}`,
       symbol: card.symbol,
@@ -665,7 +677,7 @@ export function BattlePage() {
       sector: card.sector,
       rarity: card.rarity,
       buyPrice: actualPrice,  // Use actual price from data
-      quantity: priceInfo.quantity,
+      quantity: adjustedQuantity,  // Use adjusted quantity to match displayed cost
       currentPrice: actualPrice,  // Use actual price from data
       buyDayIndex: currentDayIndex,
       data: stockResult.data,
@@ -674,13 +686,15 @@ export function BattlePage() {
 
     addToPortfolio(position)
     
-    // Deduct capital using priceInfo.totalCost (which was calculated based on current day price)
-    // This ensures consistency between card display and actual deduction
-    const newCapital = Math.max(0, currentCapital - priceInfo.totalCost)
+    // Deduct capital using cardDisplayedCost (what user saw on card)
+    // This ensures the deducted amount matches what was displayed
+    const newCapital = Math.max(0, currentCapital - cardDisplayedCost)
     useGameStore.setState({ realizedProfit: newCapital })
     
     // Ensure totalAssets is recalculated after adding position
     useGameStore.getState().calculatePortfolioValue()
+    
+    console.log(`Quarterly Draft ${card.symbol}: displayed=${cardDisplayedCost}, actualPrice=${actualPrice}, quantity=${adjustedQuantity}, calculated=${adjustedTotalCost}`)
     
     setSelectedCardIds(new Set([card.id]))
 
