@@ -258,15 +258,20 @@ export function BattlePage() {
         continue
       }
 
-      // Use actual first day close price from data (not priceInfo.price which might differ)
+      // Use actual first day close price from data
       const actualFirstDayPrice = stockResult.data[0].close
+      
+      // Use priceInfo.totalCost (which matches what's displayed on the card)
+      // This ensures consistency between card display and actual deduction
+      const cardTotalCost = priceInfo.totalCost
       
       // Verify priceInfo.price matches actual first day price
       if (Math.abs(priceInfo.price - actualFirstDayPrice) > 0.01) {
-        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[0]=${actualFirstDayPrice}. Using data[0].close`)
+        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[0]=${actualFirstDayPrice}. Card shows ${cardTotalCost}, using card totalCost`)
       }
 
-      // Create portfolio position
+      // Create portfolio position using actual first day price for buyPrice and currentPrice
+      // but use priceInfo.quantity to ensure consistency with card display
       const position = {
         id: `${card.symbol}-${Date.now()}-${Math.random()}`,
         symbol: card.symbol,
@@ -282,8 +287,8 @@ export function BattlePage() {
       }
 
       newPositions.push(position)
-      // Recalculate totalCost using actual first day price
-      totalCost += actualFirstDayPrice * priceInfo.quantity
+      // Use priceInfo.totalCost to match card display
+      totalCost += cardTotalCost
     }
 
     // Update realized profit FIRST (remaining capital after purchases)
