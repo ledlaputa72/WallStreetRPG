@@ -252,6 +252,14 @@ export function BattlePage() {
         continue
       }
 
+      // Use actual first day close price from data (not priceInfo.price which might differ)
+      const actualFirstDayPrice = stockResult.data[0].close
+      
+      // Verify priceInfo.price matches actual first day price
+      if (Math.abs(priceInfo.price - actualFirstDayPrice) > 0.01) {
+        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[0]=${actualFirstDayPrice}. Using data[0].close`)
+      }
+
       // Create portfolio position
       const position = {
         id: `${card.symbol}-${Date.now()}-${Math.random()}`,
@@ -259,16 +267,17 @@ export function BattlePage() {
         stockName: card.stockName,
         sector: card.sector,
         rarity: card.rarity,
-        buyPrice: priceInfo.price,
+        buyPrice: actualFirstDayPrice,  // Use actual first day close price
         quantity: priceInfo.quantity,
-        currentPrice: priceInfo.price,
+        currentPrice: actualFirstDayPrice,  // Use actual first day close price
         buyDayIndex: 0,
         data: stockResult.data,
         currentDayIndex: 0,
       }
 
       newPositions.push(position)
-      totalCost += priceInfo.totalCost
+      // Recalculate totalCost using actual first day price
+      totalCost += actualFirstDayPrice * priceInfo.quantity
     }
 
     // Update realized profit FIRST (remaining capital after purchases)
@@ -574,6 +583,15 @@ export function BattlePage() {
       return
     }
 
+    // Use actual price from data for the current day
+    // For quarterly draft, we're at currentDayIndex, so use data[currentDayIndex].close
+    const actualPrice = stockResult.data[currentDayIndex]?.close ?? stockResult.data[0]?.close ?? priceInfo.price
+    
+    // Verify priceInfo.price matches actual price
+    if (Math.abs(priceInfo.price - actualPrice) > 0.01) {
+      console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[${currentDayIndex}]=${actualPrice}. Using data price`)
+    }
+
     // Create portfolio position
     const position = {
       id: `${card.symbol}-${Date.now()}-${Math.random()}`,
@@ -581,9 +599,9 @@ export function BattlePage() {
       stockName: card.stockName,
       sector: card.sector,
       rarity: card.rarity,
-      buyPrice: priceInfo.price,
+      buyPrice: actualPrice,  // Use actual price from data
       quantity: priceInfo.quantity,
-      currentPrice: priceInfo.price,
+      currentPrice: actualPrice,  // Use actual price from data
       buyDayIndex: currentDayIndex,
       data: stockResult.data,
       currentDayIndex: currentDayIndex,
@@ -591,8 +609,9 @@ export function BattlePage() {
 
     addToPortfolio(position)
     
-    // Deduct capital
-    const newCapital = Math.max(0, currentCapital - priceInfo.totalCost)
+    // Deduct capital using actual price (not priceInfo.totalCost which might be based on different price)
+    const actualTotalCost = actualPrice * priceInfo.quantity
+    const newCapital = Math.max(0, currentCapital - actualTotalCost)
     useGameStore.setState({ realizedProfit: newCapital })
     
     setSelectedCardIds(new Set([card.id]))
