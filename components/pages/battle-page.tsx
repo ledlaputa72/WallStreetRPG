@@ -216,12 +216,16 @@ export function BattlePage() {
     setGamePhase('playing')
     gamePhaseRef.current = 'playing'
     setChartMode('portfolio')
+    // Portfolio 모드에서는 라인 또는 에어리어 차트만 사용
+    if (chartType === 'candle') {
+      handleChartTypeChange('line')
+    }
     useGameStore.setState({ isPlaying: true, currentDayIndex: 0 })
     
     // Reset quarterly drafts tracking for new game
     openedQuarterlyDraftsRef.current.clear()
     isOpeningQuarterlyDraftRef.current = false
-  }, [selectedYear, updatePositionPrice])
+  }, [selectedYear, updatePositionPrice, chartType, handleChartTypeChange])
 
   // Handle draft completion - create portfolio positions from selected cards
   const handleDraftComplete = useCallback(async () => {
@@ -403,19 +407,24 @@ export function BattlePage() {
         }
       } else if (chartMode === 'portfolio') {
         // Show portfolio total value
-        const aumValue = useGameStore.getState().aum || 0
-        const realizedProfit = useGameStore.getState().realizedProfit
+        // Use the same calculation as useGameStore.calculatePortfolioValue()
+        // Total Assets = Cash (realizedProfit) + Stock Market Value (unrealizedProfit)
+        const store = useGameStore.getState()
+        const realizedProfit = store.realizedProfit
+        const aumValue = store.aum || 0
+        const dailyInflow = store.dailyCapitalInflow
         
-        // Calculate portfolio value at current day
-        // Start with AUM, subtract initial purchases, add current portfolio value
-        let portfolioValue = aumValue
-        let previousValue = aumValue
+        // Calculate portfolio value: Cash + Stock Market Value
+        // Start with realized profit (cash balance)
+        let portfolioValue = realizedProfit
+        let previousValue = realizedProfit
         
         // Calculate previous day value for open price
         if (currentDay > 0) {
           portfolio.forEach(position => {
             if (position.data.length > currentDay) {
-              previousValue += (position.data[currentDay].close - position.buyPrice) * position.quantity
+              // Add current market value of stocks (not just profit)
+              previousValue += position.data[currentDay].close * position.quantity
             }
           })
         }
@@ -423,20 +432,18 @@ export function BattlePage() {
         // Calculate current day value
         portfolio.forEach(position => {
           if (position.data.length > currentDay + 1) {
-            portfolioValue += (position.data[currentDay + 1].close - position.buyPrice) * position.quantity
+            // Add current market value of stocks (not just profit)
+            portfolioValue += position.data[currentDay + 1].close * position.quantity
           } else if (position.data.length > currentDay) {
-            portfolioValue += (position.data[currentDay].close - position.buyPrice) * position.quantity
+            portfolioValue += position.data[currentDay].close * position.quantity
           }
         })
-        
-        // Add realized profit (cash from sales)
-        portfolioValue += realizedProfit
         
         // Create a synthetic candle representing portfolio total value
         const portfolioCandle = {
           id: `portfolio-${currentDay + 1}`,
           time: new Date().toISOString(),
-          open: previousValue + realizedProfit,
+          open: previousValue,
           high: portfolioValue * 1.01,
           low: portfolioValue * 0.99,
           close: portfolioValue,
@@ -448,14 +455,22 @@ export function BattlePage() {
         // Update portfolio data for comparison line
         if (phaserRef.current?.scene) {
           const portfolioLineData = []
+          // Calculate initial cash after purchase
+          const initialCost = portfolio.reduce((sum, p) => sum + (p.buyPrice * p.quantity), 0)
+          
           for (let day = 0; day <= currentDay + 1; day++) {
-            let dayValue = aumValue
+            // Calculate realized profit at this day
+            // Initial cash = AUM - initial purchase cost
+            // Then add daily inflow for each day
+            const dayRealizedProfit = (aumValue - initialCost) + (dailyInflow * day)
+            
+            let dayValue = dayRealizedProfit
             portfolio.forEach(position => {
               if (position.data.length > day) {
-                dayValue += (position.data[day].close - position.buyPrice) * position.quantity
+                // Add current market value of stocks
+                dayValue += position.data[day].close * position.quantity
               }
             })
-            dayValue += realizedProfit
             portfolioLineData.push({ day, price: dayValue })
           }
           phaserRef.current.scene.updatePortfolioData(portfolioLineData)
@@ -483,14 +498,16 @@ export function BattlePage() {
     const realizedProfit = useGameStore.getState().realizedProfit
 
     if (chartMode === 'portfolio') {
-      // Calculate portfolio value
-      let portfolioValue = aumValue
+      // Calculate portfolio value: Cash + Stock Market Value
+      // Use the same calculation as useGameStore.calculatePortfolioValue()
+      let portfolioValue = realizedProfit  // Start with cash balance
+      
       portfolio.forEach(position => {
         if (position.data.length > currentDay) {
-          portfolioValue += (position.data[currentDay].close - position.buyPrice) * position.quantity
+          // Add current market value of stocks (not just profit)
+          portfolioValue += position.data[currentDay].close * position.quantity
         }
       })
-      portfolioValue += realizedProfit
 
       const portfolioCandle = {
         id: `portfolio-${currentDay}`,

@@ -35,10 +35,10 @@ export function CapitalInfo() {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
   }
   
-  // Dashboard items
+  // Dashboard items - 1 row x 4 columns
   const dashboardItems = [
     {
-      label: 'Initial AUM',
+      label: 'AUM',
       value: formatCurrency(aum),
       color: 'text-foreground',
     },
@@ -57,57 +57,33 @@ export function CapitalInfo() {
       value: formatPercentage(profitPercentage),
       color: profitPercentage >= 0 ? 'text-green-500' : 'text-red-500',
     },
-    {
-      label: 'Cash Balance',
-      value: formatCurrency(realizedProfit),
-      color: 'text-foreground',
-    },
-    {
-      label: 'Daily Funding',
-      value: formatCurrency(dailyCapitalInflow),
-      color: 'text-foreground',
-    },
   ]
   
   return (
     <div className="bg-card/50 border-b border-primary/10">
-      {/* Desktop: 2 rows x 6 columns */}
-      <div className="hidden md:grid md:grid-cols-6 divide-x divide-primary/10">
-        {/* Row 1: Labels */}
-        <div className="grid grid-cols-6 col-span-6 divide-x divide-primary/10">
-          {dashboardItems.map((item, index) => (
-            <div
-              key={`label-${index}`}
-              className="px-3 py-2 text-center border-b border-primary/10"
-            >
-              <span className="text-[10px] text-muted-foreground font-medium">
-                {item.label}
-              </span>
+      {/* Desktop: 1 row x 4 columns */}
+      <div className="hidden md:grid md:grid-cols-4 divide-x divide-primary/10">
+        {dashboardItems.map((item, index) => (
+          <div
+            key={`item-${index}`}
+            className="px-3 py-2.5 text-center"
+          >
+            <div className="text-[10px] text-muted-foreground font-medium mb-1">
+              {item.label}
             </div>
-          ))}
-        </div>
-        
-        {/* Row 2: Values */}
-        <div className="grid grid-cols-6 col-span-6 divide-x divide-primary/10">
-          {dashboardItems.map((item, index) => (
-            <div
-              key={`value-${index}`}
-              className="px-3 py-2.5 text-center"
-            >
-              <span className={`text-sm md:text-base font-bold ${item.color}`}>
-                {item.value}
-              </span>
+            <div className={`text-sm md:text-base font-bold ${item.color}`}>
+              {item.value}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
       
-      {/* Mobile: 3 columns x 2 rows (2 layers) */}
+      {/* Mobile: 2 rows x 2 columns */}
       <div className="md:hidden">
-        {/* First layer: 3 columns */}
-        <div className="grid grid-cols-3 divide-x divide-primary/10 border-b border-primary/10">
-          {dashboardItems.slice(0, 3).map((item, index) => (
-            <div key={`mobile-label-${index}`} className="px-2 py-1.5 text-center">
+        {/* First row: 2 columns */}
+        <div className="grid grid-cols-2 divide-x divide-primary/10 border-b border-primary/10">
+          {dashboardItems.slice(0, 2).map((item, index) => (
+            <div key={`mobile-${index}`} className="px-2 py-1.5 text-center">
               <div className="text-[9px] text-muted-foreground font-medium mb-0.5">
                 {item.label}
               </div>
@@ -118,10 +94,10 @@ export function CapitalInfo() {
           ))}
         </div>
         
-        {/* Second layer: 3 columns */}
-        <div className="grid grid-cols-3 divide-x divide-primary/10">
-          {dashboardItems.slice(3, 6).map((item, index) => (
-            <div key={`mobile-label-${index + 3}`} className="px-2 py-1.5 text-center">
+        {/* Second row: 2 columns */}
+        <div className="grid grid-cols-2 divide-x divide-primary/10">
+          {dashboardItems.slice(2, 4).map((item, index) => (
+            <div key={`mobile-${index + 2}`} className="px-2 py-1.5 text-center">
               <div className="text-[9px] text-muted-foreground font-medium mb-0.5">
                 {item.label}
               </div>

@@ -32,6 +32,10 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
   // Generate mini chart data for each position (last 20 candles)
   const positionsWithCharts = useMemo(() => {
     return portfolio.map((position) => {
+      // Ensure currentPrice is up to date with data
+      const currentDayData = position.data[position.currentDayIndex]
+      const actualCurrentPrice = currentDayData?.close ?? position.currentPrice
+      
       const last20Candles = position.data
         .slice(Math.max(0, position.currentDayIndex - 19), position.currentDayIndex + 1)
         .map((candle, index) => ({
@@ -39,14 +43,17 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
           price: candle.close,
         }))
 
-      const profit = ((position.currentPrice - position.buyPrice) / position.buyPrice) * 100
-      const profitAmount = (position.currentPrice - position.buyPrice) * position.quantity
+      const profit = ((actualCurrentPrice - position.buyPrice) / position.buyPrice) * 100
+      const profitAmount = (actualCurrentPrice - position.buyPrice) * position.quantity
+      const totalValue = actualCurrentPrice * position.quantity
 
       return {
         ...position,
+        currentPrice: actualCurrentPrice, // Use actual price from data
         chartData: last20Candles,
         profit,
         profitAmount,
+        totalValue,
       }
     })
   }, [portfolio])
@@ -85,7 +92,7 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
         layout
         className={cn(
           'grid gap-2',
-          expanded ? 'grid-cols-4' : 'grid-cols-5 md:grid-cols-8'
+          expanded ? 'grid-cols-3' : 'grid-cols-4 md:grid-cols-6'
         )}
       >
         {positionsWithCharts.map((position) => {
@@ -133,7 +140,7 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
                             {position.rarity}
                           </Badge>
                         </div>
-                        <div className="text-xs text-muted-foreground">{position.stockName}</div>
+                        <div className="text-xs text-muted-foreground line-clamp-1">{position.stockName}</div>
                         <div className="text-xs" style={{ color: sectorColor }}>
                           {position.sector}
                         </div>
@@ -141,7 +148,7 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
 
                       {/* Middle Section: Chart */}
                       {position.chartData.length > 0 && (
-                        <div className="w-full h-16 flex-shrink-0">
+                        <div className="w-full h-12 flex-shrink-0">
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={position.chartData}>
                               <Line
@@ -157,27 +164,54 @@ export function QuickInventory({ onStockSelect }: QuickInventoryProps = {}) {
                         </div>
                       )}
 
-                      {/* Bottom Section: Price and Profit */}
-                      <div className="flex flex-col items-start gap-1 w-full">
-                        <div className="text-xs text-muted-foreground">
-                          ${position.currentPrice.toFixed(2)}
+                      {/* Bottom Section: Detailed Info */}
+                      <div className="flex flex-col items-start gap-0.5 w-full text-xs">
+                        {/* Initial Price */}
+                        <div className="flex justify-between w-full">
+                          <span className="text-muted-foreground">Initial:</span>
+                          <span>${position.buyPrice.toFixed(2)}</span>
                         </div>
-                        <div
-                          className={cn(
-                            'text-xs font-semibold flex items-center gap-1',
+                        
+                        {/* Current Price */}
+                        <div className="flex justify-between w-full">
+                          <span className="text-muted-foreground">Current:</span>
+                          <span className="font-semibold">${position.currentPrice.toFixed(2)}</span>
+                        </div>
+                        
+                        {/* Profit Amount */}
+                        <div className="flex justify-between w-full">
+                          <span className="text-muted-foreground">Profit ($):</span>
+                          <span className={isProfit ? 'text-green-500 font-semibold' : 'text-red-500 font-semibold'}>
+                            {isProfit ? '+' : ''}${Math.abs(position.profitAmount).toFixed(2)}
+                          </span>
+                        </div>
+                        
+                        {/* Profit % */}
+                        <div className="flex justify-between w-full">
+                          <span className="text-muted-foreground">Profit (%):</span>
+                          <span className={cn(
+                            'font-semibold flex items-center gap-1',
                             isProfit ? 'text-green-500' : 'text-red-500'
-                          )}
-                        >
-                          {isProfit ? (
-                            <TrendingUp className="w-3 h-3" />
-                          ) : (
-                            <TrendingDown className="w-3 h-3" />
-                          )}
-                          {isProfit ? '+' : ''}
-                          {position.profit.toFixed(1)}%
+                          )}>
+                            {isProfit ? (
+                              <TrendingUp className="w-3 h-3" />
+                            ) : (
+                              <TrendingDown className="w-3 h-3" />
+                            )}
+                            {isProfit ? '+' : ''}{position.profit.toFixed(1)}%
+                          </span>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {isProfit ? '+' : ''}${position.profitAmount.toFixed(2)}
+                        
+                        {/* Quantity */}
+                        <div className="flex justify-between w-full">
+                          <span className="text-muted-foreground">Qty:</span>
+                          <span>{position.quantity}</span>
+                        </div>
+                        
+                        {/* Total Value */}
+                        <div className="flex justify-between w-full pt-0.5 border-t border-primary/20 mt-0.5">
+                          <span className="text-muted-foreground font-semibold">Total:</span>
+                          <span className="font-bold">${position.totalValue.toFixed(2)}</span>
                         </div>
                       </div>
                     </>

@@ -32,15 +32,25 @@ export function ChartControls({
   onSpeedChange,
   onChartModeChange,
 }: ChartControlsProps) {
-  const chartTypes: ChartType[] = ['area', 'candle', 'line']
+  // Portfolio 모드에서는 라인과 에어리어만 허용, Stock 모드에서는 모든 타입 허용
+  const availableChartTypes: ChartType[] = chartMode === 'portfolio' 
+    ? ['area', 'line'] 
+    : ['area', 'candle', 'line']
   const candleCounts: CandleCount[] = [20, 30, 40]
   const speeds: SpeedMultiplier[] = [1, 2, 3, 4, 5]
 
-  // 차트 타입 순환
+  // 차트 타입 순환 (Portfolio 모드에서는 라인/에어리어만)
   const cycleChartType = () => {
-    const currentIndex = chartTypes.indexOf(chartType)
-    const nextIndex = (currentIndex + 1) % chartTypes.length
-    onChartTypeChange(chartTypes[nextIndex])
+    // Portfolio 모드에서 캔들 차트가 선택되어 있으면 라인으로 변경
+    let currentType = chartType
+    if (chartMode === 'portfolio' && chartType === 'candle') {
+      currentType = 'line'
+      onChartTypeChange('line')
+    }
+    
+    const currentIndex = availableChartTypes.indexOf(currentType)
+    const nextIndex = (currentIndex + 1) % availableChartTypes.length
+    onChartTypeChange(availableChartTypes[nextIndex])
   }
 
   // 캔들 개수 순환
@@ -104,6 +114,20 @@ export function ChartControls({
         {getStartStopLabel()}
       </Button>
 
+      {/* Portfolio Button */}
+      {onChartModeChange && (
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => onChartModeChange('portfolio')}
+          className={cn(
+            secondaryBtnClass,
+            chartMode === 'portfolio' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-500 hover:bg-amber-600'
+          )}
+        >
+          Portfolio
+        </Button>
+      )}
 
       {/* 오른쪽 정렬: Candle / 20x / x1 — 동일 너비 (Candle 기준) */}
       <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
