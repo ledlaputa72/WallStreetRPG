@@ -261,17 +261,16 @@ export function BattlePage() {
       // Use actual first day close price from data
       const actualFirstDayPrice = stockResult.data[0].close
       
-      // Use priceInfo.totalCost (which matches what's displayed on the card)
-      // This ensures consistency between card display and actual deduction
-      const cardTotalCost = priceInfo.totalCost
+      // Recalculate totalCost using actual first day price and quantity
+      // This ensures the cost matches the actual portfolio position value
+      const actualTotalCost = actualFirstDayPrice * priceInfo.quantity
       
       // Verify priceInfo.price matches actual first day price
       if (Math.abs(priceInfo.price - actualFirstDayPrice) > 0.01) {
-        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[0]=${actualFirstDayPrice}. Card shows ${cardTotalCost}, using card totalCost`)
+        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[0]=${actualFirstDayPrice}. Recalculating totalCost: ${actualTotalCost}`)
       }
 
       // Create portfolio position using actual first day price for buyPrice and currentPrice
-      // but use priceInfo.quantity to ensure consistency with card display
       const position = {
         id: `${card.symbol}-${Date.now()}-${Math.random()}`,
         symbol: card.symbol,
@@ -287,21 +286,33 @@ export function BattlePage() {
       }
 
       newPositions.push(position)
-      // Use priceInfo.totalCost to match card display
-      totalCost += cardTotalCost
+      // Use actualTotalCost calculated from actualFirstDayPrice * quantity
+      // This ensures consistency between portfolio position value and deducted cost
+      totalCost += actualTotalCost
     }
 
     // Update realized profit FIRST (remaining capital after purchases)
     // This must be done before adding positions so calculatePortfolioValue uses correct realizedProfit
     const initialAUM = aum || 0
-    useGameStore.setState({ realizedProfit: initialAUM - totalCost })
+    const remainingCash = initialAUM - totalCost
+    useGameStore.setState({ realizedProfit: remainingCash })
 
     // Add all positions to portfolio
     // calculatePortfolioValue will be called for each position, using the correct realizedProfit
     newPositions.forEach(position => addToPortfolio(position))
     
     // Ensure totalAssets is recalculated with final values
+    // After all positions are added, totalAssets should equal:
+    // realizedProfit (cash) + unrealizedProfit (stock value)
+    // = (AUM - totalCost) + (sum of actualFirstDayPrice * quantity for each position)
+    // = AUM (since totalCost = sum of actualFirstDayPrice * quantity)
     useGameStore.getState().calculatePortfolioValue()
+    
+    // Verify calculation: totalAssets should equal AUM at start
+    const finalTotalAssets = useGameStore.getState().totalAssets
+    if (Math.abs(finalTotalAssets - initialAUM) > 0.01) {
+      console.warn(`Total assets mismatch: expected ${initialAUM}, got ${finalTotalAssets}. totalCost=${totalCost}, remainingCash=${remainingCash}`)
+    }
 
     // Start simulation
     await startSimulation()
