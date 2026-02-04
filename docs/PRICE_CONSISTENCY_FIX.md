@@ -56,6 +56,25 @@
 - **수정** (`components/pages/battle-page.tsx`): `card.id` 기준 시드 해시로 15–30% 구간을 결정론적으로 계산.  
   동일 카드는 항상 같은 투자 비율·수량·totalCost로 표시되고, `handleDraftComplete`에서 사용하는 `cardPrices`와 일치.
 
+### 6. 주가 동기화 및 수익률 0% 시작 (Critical)
+
+- **증상**: 게임 시작 직후 수익률이 +6000% 또는 -80% 등으로 튀는 현상 (카드 매입가 ≠ 시뮬레이션 시작가).
+- **원칙**: "카드 가격 = 포트폴리오 매입가 = 시뮬레이션 해당일 종가"를 **항상 position.data에서만** 사용.
+- **수정**  
+  - **초기 드래프트 (Day 0)**  
+    - 카드: `data[0].close` (이미 `handleStartGame`에서 사용).  
+    - 포지션: `handleDraftComplete`에서 **매입가/현재가는 오직 `stockResult.data[0].close`만 사용**.  
+    - 현금 차감: `actualFirstDayPrice * quantity`로 해서 (현금 + 주식 평가액) = AUM, 수익률 0%에서 시작.  
+  - **분기 드래프트 (Quarterly)**  
+    - 카드: `data[currentDayIndex].close` (이미 quarterly 카드 가격 설정에서 사용).  
+    - 포지션: `data[currentDayIndex].close`를 매입가/현재가로 사용, 현금 차감도 `actualPrice * quantity`로 통일.  
+  - **스토어** (`useGameStore.addToPortfolio`):  
+    - 추가 시 **항상 `position.data[buyDayIndex].close`를 조회해 `buyPrice`/`currentPrice`로 강제 설정**.  
+    - 호출부에서 잘못된 가격이 넘어와도 시뮬레이션과 동일한 가격으로 정규화.  
+- **인플레이션**: `dataFetcher`가 API 응답에 `applyInflationToCandles(result.data, year)` 적용 후 반환하므로, 카드·포지션·시뮬레이션 모두 **동일한 보정된 가격** 사용.  
+- **대시보드**: `totalAssets = realizedProfit + Σ(currentPrice × quantity)`, `P&L ($) = totalAssets - AUM`, `P&L (%) = (totalAssets - AUM) / AUM × 100`.  
+  시작 시점에 위 로직으로 현금·주가를 맞추면 수익률이 0.00%에서 시작함.
+
 ## 검증 포인트
 
 - 동일 연도에서 카드 선택 시 표시된 “투자금”과 포트폴리오의 Initial Price × Qty, Total Value가 시작 시점에 맞는지.

@@ -134,7 +134,19 @@ export const useGameStore = create<GameStore>((set, get) => {
         console.warn('Portfolio is full')
         return
       }
-      set({ portfolioAssets: [...current, position] })
+      // Force buyPrice/currentPrice from position.data at entry day so P/L is never skewed
+      // (card price = portfolio buy = simulation price; all inflation-adjusted in data)
+      const entryPrice =
+        position.data.length > 0 && position.buyDayIndex >= 0 && position.buyDayIndex < position.data.length
+          ? position.data[position.buyDayIndex].close
+          : position.buyPrice
+      const normalized: PortfolioPosition = {
+        ...position,
+        buyPrice: entryPrice,
+        currentPrice: entryPrice,
+        currentDayIndex: position.buyDayIndex,
+      }
+      set({ portfolioAssets: [...current, normalized] })
       get().calculatePortfolioValue()
     },
     

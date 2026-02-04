@@ -198,19 +198,17 @@ export function BattlePage() {
   const startSimulation = useCallback(async () => {
     if (!selectedYear) return
 
-    // Positions are already created with correct buyPrice and currentPrice in handleDraftComplete
-    // No need to update prices here - they're already set to actualFirstDayPrice
-    // Just ensure calculatePortfolioValue is called to verify initial state
+    // Enforce "card = portfolio = simulation": each position's current price must match data at its current day.
     const currentPortfolio = useGameStore.getState().portfolioAssets
-    if (currentPortfolio.length > 0) {
-      // Verify all positions have correct initial prices
-      currentPortfolio.forEach(position => {
-        if (position.data.length > 0 && Math.abs(position.currentPrice - position.data[0].close) > 0.01) {
-          // Only update if there's a mismatch (shouldn't happen, but just in case)
-          updatePositionPrice(position.id, position.data[0].close, 0)
+    currentPortfolio.forEach(position => {
+      const dayIdx = position.currentDayIndex
+      if (position.data.length > dayIdx) {
+        const dataPrice = position.data[dayIdx].close
+        if (Math.abs(position.currentPrice - dataPrice) > 0.01) {
+          updatePositionPrice(position.id, dataPrice, dayIdx)
         }
-      })
-    }
+      }
+    })
 
     // Initialize chart based on mode (default: portfolio)
     const aumValue = useGameStore.getState().aum || 0
@@ -270,43 +268,29 @@ export function BattlePage() {
         continue
       }
 
-      // Use actual first day close price from data
+      // CRITICAL: Use only data[0].close as buy/current price so "card = portfolio = simulation" match.
+      // (data is already inflation-adjusted from dataFetcher; same source => no P/L jump at start.)
       const actualFirstDayPrice = stockResult.data[0].close
-      
-      // IMPORTANT: Use priceInfo.price and priceInfo.quantity (displayed on card) for consistency
-      // The card shows priceInfo.totalCost = priceInfo.price * priceInfo.quantity to the user
-      // We must use these exact values to match what was displayed
-      const cardDisplayedPrice = priceInfo.price
-      const cardDisplayedQuantity = priceInfo.quantity
-      const cardDisplayedCost = priceInfo.totalCost
-      
-      // Verify priceInfo.price matches actual first day price
-      if (Math.abs(cardDisplayedPrice - actualFirstDayPrice) > 0.01) {
-        console.warn(`Price mismatch for ${card.symbol}: priceInfo=${cardDisplayedPrice}, data[0]=${actualFirstDayPrice}. Using card displayed values: price=${cardDisplayedPrice}, qty=${cardDisplayedQuantity}, cost=${cardDisplayedCost}`)
-      }
+      const quantity = priceInfo.quantity
 
-      // Use card displayed price and quantity to ensure exact match with card display
-      // This ensures the portfolio position value exactly matches what was shown on the card
       const position = {
         id: `${card.symbol}-${Date.now()}-${Math.random()}`,
         symbol: card.symbol,
         stockName: card.stockName,
         sector: card.sector,
         rarity: card.rarity,
-        buyPrice: cardDisplayedPrice,  // Use card displayed price (matches card display)
-        quantity: cardDisplayedQuantity,  // Use card displayed quantity (matches card display)
-        currentPrice: cardDisplayedPrice,  // Use card displayed price initially
+        buyPrice: actualFirstDayPrice,
+        quantity,
+        currentPrice: actualFirstDayPrice,
         buyDayIndex: 0,
         data: stockResult.data,
         currentDayIndex: 0,
       }
 
       newPositions.push(position)
-      // Use cardDisplayedCost (what user saw on card) for totalCost calculation
-      // This ensures the deducted amount matches what was displayed
-      totalCost += cardDisplayedCost
-      
-      console.log(`Card ${card.symbol}: displayedPrice=${cardDisplayedPrice}, displayedQty=${cardDisplayedQuantity}, displayedCost=${cardDisplayedCost}, actualPrice=${actualFirstDayPrice}`)
+      // Deduct using actual data price so (cash + stock value) = AUM at start; P/L starts at 0%
+      const positionCost = actualFirstDayPrice * quantity
+      totalCost += positionCost
     }
 
     // Update realized profit FIRST (remaining capital after purchases)
@@ -650,54 +634,36 @@ export function BattlePage() {
       return
     }
 
-    // Use actual price from data for the current day
-    // For quarterly draft, we're at currentDayIndex, so use data[currentDayIndex].close
+    // CRITICAL: Use only data[currentDayIndex].close so card = portfolio = simulation (same inflation-adjusted source).
     const actualPrice = stockResult.data[currentDayIndex]?.close ?? stockResult.data[0]?.close ?? priceInfo.price
-    
-    // IMPORTANT: Use priceInfo.totalCost (displayed on card) for consistency
-    // The card shows priceInfo.totalCost to the user, so we must use that value
-    // Even if actualPrice differs slightly, we use priceInfo.totalCost
-    // and adjust quantity to match the displayed cost
-    const cardDisplayedCost = priceInfo.totalCost
-    
-    // Verify priceInfo.price matches actual price
-    if (Math.abs(priceInfo.price - actualPrice) > 0.01) {
-      console.warn(`Price mismatch for ${card.symbol}: priceInfo=${priceInfo.price}, data[${currentDayIndex}]=${actualPrice}. Using card displayed cost: ${cardDisplayedCost}`)
-    }
+    const dayIndex = Math.min(currentDayIndex, stockResult.data.length - 1)
 
-    // Calculate quantity based on actual price to match displayed cost
-    // This ensures the portfolio position value matches what was shown on the card
-    const adjustedQuantity = Math.max(1, Math.floor(cardDisplayedCost / actualPrice))
-    const adjustedTotalCost = actualPrice * adjustedQuantity
+    // Quantity from displayed cost so user sees same total; cost we deduct = actual price * quantity (P/L starts at 0).
+    const adjustedQuantity = Math.max(1, Math.floor(priceInfo.totalCost / actualPrice))
+    const positionCost = actualPrice * adjustedQuantity
 
-    // Create portfolio position using actual price for buyPrice and currentPrice
-    // But use adjustedQuantity to match the displayed cost
     const position = {
       id: `${card.symbol}-${Date.now()}-${Math.random()}`,
       symbol: card.symbol,
       stockName: card.stockName,
       sector: card.sector,
       rarity: card.rarity,
-      buyPrice: actualPrice,  // Use actual price from data
-      quantity: adjustedQuantity,  // Use adjusted quantity to match displayed cost
-      currentPrice: actualPrice,  // Use actual price from data
-      buyDayIndex: currentDayIndex,
+      buyPrice: actualPrice,
+      quantity: adjustedQuantity,
+      currentPrice: actualPrice,
+      buyDayIndex: dayIndex,
       data: stockResult.data,
-      currentDayIndex: currentDayIndex,
+      currentDayIndex: dayIndex,
     }
 
     addToPortfolio(position)
-    
-    // Deduct capital using cardDisplayedCost (what user saw on card)
-    // This ensures the deducted amount matches what was displayed
-    const newCapital = Math.max(0, currentCapital - cardDisplayedCost)
+
+    // Deduct by actual position cost so (cash + stock value) stays consistent; P/L correct
+    const newCapital = Math.max(0, currentCapital - positionCost)
     useGameStore.setState({ realizedProfit: newCapital })
     
-    // Ensure totalAssets is recalculated after adding position
     useGameStore.getState().calculatePortfolioValue()
-    
-    console.log(`Quarterly Draft ${card.symbol}: displayed=${cardDisplayedCost}, actualPrice=${actualPrice}, quantity=${adjustedQuantity}, calculated=${adjustedTotalCost}`)
-    
+
     setSelectedCardIds(new Set([card.id]))
 
     // Resume simulation after selection
