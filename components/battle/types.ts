@@ -42,8 +42,19 @@ export interface Skill {
   upCost: number
 }
 
+import type { MarketCandle } from '@/lib/types'
+
 // Chart Types
 export type ChartType = 'candle' | 'area' | 'line'
 export type CandleCount = 20 | 30 | 40
 export type SpeedMultiplier = 1 | 2 | 3 | 4 | 5
 export type GameState = 'IDLE' | 'LOADING' | 'PLAYING'
+
+/** Stage/simulation run state - one symbol, one year, sequential playback */
+export interface StageData {
+  symbol: string
+  stockName: string
+  year: number
+  fullYearData: MarketCandle[]
+  currentIndex: number
+}

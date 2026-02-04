@@ -1,5 +1,15 @@
 export type PageType = 'character' | 'partners' | 'items' | 'battle' | 'dungeon' | 'shop' | 'rewards'
 
+/** Market candle (OHLCV) - shared by API and battle/simulation */
+export interface MarketCandle {
+  time: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
 export interface Character {
   id: string
   name: string

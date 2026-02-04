@@ -1,5 +1,11 @@
 'use client'
 
+/**
+ * @deprecated Legacy backup of battle-page (single-file version).
+ * Use components/pages/battle-page.tsx for all updates.
+ * Kept for reference only; see docs/CODEBASE.md.
+ */
+
 import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'

@@ -69,7 +69,9 @@ export function usePhaserGame() {
     eventBusRef.current.emit(eventsRef.current.CHANGE_SPEED, speed)
   }
 
-  const profitPercent = ((priceChange / currentPrice) * 100).toFixed(2)
+  const profitPercent = currentPrice !== 0
+    ? ((priceChange / currentPrice) * 100).toFixed(2)
+    : '0.00'
 
   return {
     phaserRef,

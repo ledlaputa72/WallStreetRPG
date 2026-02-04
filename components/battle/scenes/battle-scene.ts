@@ -79,6 +79,15 @@ export default class BattleScene extends Phaser.Scene {
   private historicalQueue: CandleData[] = []
   private isPlayingHistorical: boolean = false
 
+  // Bound handlers for event bus (same reference for on/off to avoid duplicate listeners)
+  private boundAddNewCandle = (candle: CandleData) => this.addNewCandle(candle)
+  private boundChangeChartType = (type: 'candle' | 'area' | 'line') => this.changeChartType(type)
+  private boundChangeSpeed = (speed: number) => this.changeSpeed(speed)
+  private boundChangeCandleCount = (count: number) => this.changeCandleCount(count)
+  private boundOnAttackEnemy = (enemyId: string) => this.onAttackEnemy(enemyId)
+  private boundUpdateMarketData = (data: MarketDataUpdate) => this.updateMarketData(data)
+  private boundClearChart = () => this.clearChart()
+
   // Portfolio comparison
   private portfolioData: Array<{ day: number; price: number }> = []
   private comparisonGraphics: Phaser.GameObjects.Graphics | null = null
@@ -133,14 +142,14 @@ export default class BattleScene extends Phaser.Scene {
     // Setup input handlers for zoom and pan
     this.setupInputHandlers()
 
-    // Event listeners
-    eventBus.on(EVENTS.NEW_CANDLE, this.addNewCandle.bind(this))
-    eventBus.on(EVENTS.CHANGE_CHART_TYPE, this.changeChartType.bind(this))
-    eventBus.on(EVENTS.CHANGE_SPEED, this.changeSpeed.bind(this))
-    eventBus.on(EVENTS.CHANGE_CANDLE_COUNT, this.changeCandleCount.bind(this))
-    eventBus.on(EVENTS.ATTACK_ENEMY, this.onAttackEnemy.bind(this))
-    eventBus.on(EVENTS.UPDATE_MARKET_DATA, this.updateMarketData.bind(this))
-    eventBus.on(EVENTS.CLEAR_CHART, this.clearChart.bind(this))
+    // Event listeners (use bound refs so off() in shutdown removes the same handler)
+    eventBus.on(EVENTS.NEW_CANDLE, this.boundAddNewCandle)
+    eventBus.on(EVENTS.CHANGE_CHART_TYPE, this.boundChangeChartType)
+    eventBus.on(EVENTS.CHANGE_SPEED, this.boundChangeSpeed)
+    eventBus.on(EVENTS.CHANGE_CANDLE_COUNT, this.boundChangeCandleCount)
+    eventBus.on(EVENTS.ATTACK_ENEMY, this.boundOnAttackEnemy)
+    eventBus.on(EVENTS.UPDATE_MARKET_DATA, this.boundUpdateMarketData)
+    eventBus.on(EVENTS.CLEAR_CHART, this.boundClearChart)
 
     // DO NOT auto-start - wait for React to send NEW_CANDLE events
     // this.startCandleGeneration() // REMOVED - React controls start/stop
@@ -376,6 +385,11 @@ export default class BattleScene extends Phaser.Scene {
 
   private addNewCandle(candle: CandleData) {
     if (!this.add) return
+    // Prevent duplicate candles (e.g. same event fired twice or double listener)
+    const last = this.candles[this.candles.length - 1]
+    if (last && (last.id === candle.id || (last.time === candle.time && last.close === candle.close))) {
+      return
+    }
     this.candles.push(candle)
 
     const maxCandles = 300
@@ -856,7 +870,7 @@ export default class BattleScene extends Phaser.Scene {
 
     candles.forEach((candle, index) => {
       const slotIndex = this.candleSlotIndex(candles.length, index)
-      const x = startX + slotIndex * gw + (gw - candleWidth) / 2 - this.scrollOffsetX
+      const x = Math.round(startX + slotIndex * gw + (gw - candleWidth) / 2 - this.scrollOffsetX)
       const isUp = candle.close >= candle.open
       const color = isUp ? this.BULL_COLOR : this.BEAR_COLOR
 
@@ -865,24 +879,25 @@ export default class BattleScene extends Phaser.Scene {
       const openY = this.priceToY(candle.open, minPrice, maxPrice, priceRange)
       const closeY = this.priceToY(candle.close, minPrice, maxPrice, priceRange)
 
-      const bodyTop = Math.min(openY, closeY)
-      const bodyHeight = Math.max(1, Math.abs(closeY - openY))
+      const bodyTop = Math.round(Math.min(openY, closeY))
+      const bodyHeight = Math.max(1, Math.round(Math.abs(closeY - openY)))
+      const cw = Math.max(2, Math.round(candleWidth))
 
       // Wick (single path)
       graphics.lineStyle(1, color, 1)
       graphics.beginPath()
-      graphics.moveTo(x + candleWidth / 2, highY)
-      graphics.lineTo(x + candleWidth / 2, lowY)
+      graphics.moveTo(x + cw / 2, highY)
+      graphics.lineTo(x + cw / 2, lowY)
       graphics.strokePath()
 
-      // Body: single fillRect only to avoid double-draw (strokeRect + fillRect caused shadowing)
+      // Body: single fillRect only; integer coords avoid sub-pixel double-draw
       graphics.fillStyle(color, 1)
-      graphics.fillRect(x, bodyTop, candleWidth, bodyHeight)
+      graphics.fillRect(x, bodyTop, cw, bodyHeight)
 
       const volumeBarHeight = (candle.volume / maxVolume) * this.volumeHeight
       const volumeY = this.chartPadding.top + this.chartHeight + 10
       volumeGfx.fillStyle(color, 0.3)
-      volumeGfx.fillRect(x, volumeY + (this.volumeHeight - volumeBarHeight), candleWidth, volumeBarHeight)
+      volumeGfx.fillRect(x, Math.round(volumeY + (this.volumeHeight - volumeBarHeight)), cw, Math.round(volumeBarHeight))
     })
 
     if (candles.length > 0) {
@@ -1103,13 +1118,13 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   shutdown() {
-    eventBus.off(EVENTS.NEW_CANDLE, this.addNewCandle.bind(this))
-    eventBus.off(EVENTS.CHANGE_CHART_TYPE, this.changeChartType.bind(this))
-    eventBus.off(EVENTS.CHANGE_SPEED, this.changeSpeed.bind(this))
-    eventBus.off(EVENTS.CHANGE_CANDLE_COUNT, this.changeCandleCount.bind(this))
-    eventBus.off(EVENTS.ATTACK_ENEMY, this.onAttackEnemy.bind(this))
-    eventBus.off(EVENTS.UPDATE_MARKET_DATA, this.updateMarketData.bind(this))
-    eventBus.off(EVENTS.CLEAR_CHART, this.clearChart.bind(this))
+    eventBus.off(EVENTS.NEW_CANDLE, this.boundAddNewCandle)
+    eventBus.off(EVENTS.CHANGE_CHART_TYPE, this.boundChangeChartType)
+    eventBus.off(EVENTS.CHANGE_SPEED, this.boundChangeSpeed)
+    eventBus.off(EVENTS.CHANGE_CANDLE_COUNT, this.boundChangeCandleCount)
+    eventBus.off(EVENTS.ATTACK_ENEMY, this.boundOnAttackEnemy)
+    eventBus.off(EVENTS.UPDATE_MARKET_DATA, this.boundUpdateMarketData)
+    eventBus.off(EVENTS.CLEAR_CHART, this.boundClearChart)
 
     if (this.animationTimer) {
       this.animationTimer.destroy()

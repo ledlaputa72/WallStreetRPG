@@ -17,7 +17,7 @@ import { SettlementReport } from '@/components/game/SettlementReport'
 import { generateInitialDraft, generateQuarterlyDraft } from '@/lib/utils/cardGenerator'
 import { fetchHistoricalStockData } from '@/lib/utils/dataFetcher'
 import type { StockCard } from '@/lib/types/stock'
-import type { GameState, SpeedMultiplier } from '@/components/battle/types'
+import type { GameState, SpeedMultiplier, StageData } from '@/components/battle/types'
 
 interface CardPriceInfo {
   cardId: string

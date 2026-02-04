@@ -1,13 +1,5 @@
 import { NextResponse } from 'next/server'
-
-export interface MarketCandle {
-  time: string
-  open: number
-  high: number
-  low: number
-  close: number
-  volume: number
-}
+import type { MarketCandle } from '@/lib/types'
 
 interface AlphaVantageTimeSeriesData {
   '1. open': string
