@@ -18,14 +18,13 @@ interface SettlementReportProps {
 export function SettlementReport({ onNewGame, onContinue }: SettlementReportProps) {
   const aum = useGameStore(state => state.aum) || 0
   const totalAssets = useGameStore(state => state.totalAssets)
-  const dailyCapitalInflow = useGameStore(state => state.dailyCapitalInflow)
-  const currentDayIndex = useGameStore(state => state.currentDayIndex)
   const portfolioReturn = useGameStore(state => state.calculatePortfolioReturn())
   const sp500Return = useGameStore(state => state.calculateSP500Return())
   const portfolio = useGameStore(state => state.portfolioAssets)
   const alphaTarget = useGameStore(state => state.alphaTarget)
+  const getTotalProfit = useGameStore(state => state.getTotalProfit)
 
-  const investmentProfit = totalAssets - aum - dailyCapitalInflow * currentDayIndex
+  const investmentProfit = getTotalProfit()
 
   const isVictory = useMemo(() => {
     const targetProfit = aum * 1.5

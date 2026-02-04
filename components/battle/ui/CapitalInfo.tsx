@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { useGameStore } from '@/lib/stores/useGameStore'
 
 export function CapitalInfo() {
@@ -8,18 +7,13 @@ export function CapitalInfo() {
   const totalAssets = useGameStore(state => state.totalAssets)
   const dailyCapitalInflow = useGameStore(state => state.dailyCapitalInflow)
   const currentDayIndex = useGameStore(state => state.currentDayIndex)
+  const getTotalProfit = useGameStore(state => state.getTotalProfit)
+  const calculatePortfolioReturn = useGameStore(state => state.calculatePortfolioReturn)
 
-  // P/L = investment performance only (exclude accumulated daily funding so all-negative stocks => negative P/L)
-  // Formula: (Total Assets - Initial AUM) - (daily funding × days elapsed)
-  const totalProfit = useMemo(() => {
-    const accumulatedFunding = dailyCapitalInflow * currentDayIndex
-    return totalAssets - aum - accumulatedFunding
-  }, [totalAssets, aum, dailyCapitalInflow, currentDayIndex])
-
-  const profitPercentage = useMemo(() => {
-    if (aum === 0) return 0
-    return (totalProfit / aum) * 100
-  }, [totalProfit, aum])
+  // P/L ($) = Total Assets - totalInvestedCapital (investment profit only; excludes accFunding from being counted as profit)
+  // P/L (%) = Total Profit / totalInvestedCapital × 100
+  const totalProfit = getTotalProfit()
+  const profitPercentage = calculatePortfolioReturn()
   
   // Format currency with Intl.NumberFormat
   const formatCurrency = (value: number) => {

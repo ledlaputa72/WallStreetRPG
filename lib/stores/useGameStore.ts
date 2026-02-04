@@ -33,12 +33,13 @@ export interface MentalState {
 export interface GameStore {
   // AUM and Capital
   aum: number | null // Selected AUM ($1K - $1M)
-  /** Current cash balance = AUM - purchases + (dailyCapitalInflow × days) + sale proceeds. Not "profit" alone. */
+  /** currentCash: remaining after purchases + accumulated funding + sale proceeds (UI "Cash balance"). */
   realizedProfit: number
-  unrealizedProfit: number // Sum of (currentPrice × quantity) for all positions
-  /** totalAssets = realizedProfit (cash) + unrealizedProfit (stock value). No double-count. */
+  /** currentStockValue: Σ(p.currentPrice × p.quantity). */
+  unrealizedProfit: number
+  /** totalAssets = currentCash + currentStockValue. No double-count. */
   totalAssets: number
-  /** Added to realizedProfit exactly once per day in incrementDay(). */
+  /** Per-day auto funding; added to realizedProfit exactly once per day in incrementDay(). */
   dailyCapitalInflow: number
   ceoCapitalBonus: number // CEO bonus multiplier (0-0.2)
   
@@ -82,6 +83,14 @@ export interface GameStore {
   calculatePortfolioReturn: () => number
   calculateSP500Return: () => number
   setSelectedPositionId: (id: string | null) => void
+  /** Accumulated auto-funded amount so far: dailyCapitalInflow × currentDayIndex */
+  getAccumulatedFunding: () => number
+  /** Total capital put in: initialAUM + accFunding. Used as denominator for P/L %. */
+  getTotalInvestedCapital: () => number
+  /** Investment profit only: Total Assets - totalInvestedCapital. Matches sum of position P/L + realized from sales. */
+  getTotalProfit: () => number
+  /** Sum of (currentPrice - buyPrice) × quantity over all positions (unrealized only). For verification vs getTotalProfit. */
+  getTotalProfitFromPositions: () => number
 }
 
 const initialState = {
@@ -257,14 +266,33 @@ export const useGameStore = create<GameStore>((set, get) => {
       return total
     },
 
-    /** Return %: (Total Assets - AUM - accumulated daily funding) / AUM × 100. Investment performance only. */
+    /** P/L (%): (Total Profit / totalInvestedCapital) × 100. Investment performance only; denominator = initialAUM + accFunding. */
     calculatePortfolioReturn: (): number => {
-      const aum = get().aum
-      if (!aum || aum === 0) return 0
+      const totalInvested = get().getTotalInvestedCapital()
+      if (totalInvested <= 0) return 0
+      const totalProfit = get().getTotalProfit()
+      return (totalProfit / totalInvested) * 100
+    },
+
+    getAccumulatedFunding: (): number => {
+      return (get().dailyCapitalInflow ?? 0) * (get().currentDayIndex ?? 0)
+    },
+
+    getTotalInvestedCapital: (): number => {
+      const aum = get().aum ?? 0
+      return aum + get().getAccumulatedFunding()
+    },
+
+    getTotalProfit: (): number => {
       const totalAssets = get().totalAssets ?? 0
-      const accumulatedFunding = (get().dailyCapitalInflow ?? 0) * (get().currentDayIndex ?? 0)
-      const investmentProfit = totalAssets - aum - accumulatedFunding
-      return (investmentProfit / aum) * 100
+      return totalAssets - get().getTotalInvestedCapital()
+    },
+
+    getTotalProfitFromPositions: (): number => {
+      return get().portfolioAssets.reduce(
+        (sum, p) => sum + (p.currentPrice - p.buyPrice) * p.quantity,
+        0
+      )
     },
     
     calculateSP500Return: (): number => {

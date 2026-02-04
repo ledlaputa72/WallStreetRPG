@@ -76,17 +76,22 @@
 
 ### 7. 자산/현금 흐름 및 P/L 수식 (Critical Audit)
 
-- **totalAssets**: `realizedProfit`(현금 잔고) + `unrealizedProfit`(보유 종목 평가액). 중복 합산 없음.
-- **현금(realizedProfit)**:  
-  `AUM - (매수 시 지불한 합계) + (일일 충전 × 경과 일수) + 매도 대금 - 추가 매수`.  
-  매수 시 `initialPrice * quantity`(인플레이션 보정 가격 동일 적용)만큼 정확히 차감.
-- **일일 충전**: `incrementDay()`에서 하루에 한 번만 `realizedProfit + dailyCapitalInflow` 적용. (`currentDay`당 1회)
-- **P/L (투자 성과만 표시)**:  
-  - `P/L ($) = Total Assets - Initial AUM - (dailyCapitalInflow × currentDayIndex)`  
-  - `P/L (%) = P/L ($) / AUM × 100`  
-  일일 충전 누적분을 빼므로, **모든 종목이 마이너스일 때 상단 P/L도 마이너스**로 표시됨.
-- **개별 카드 Profit ($)**: `(Current Price - Initial Price) × Quantity` (동일 적용).
-- **스토어** `calculatePortfolioReturn()`: 위 P/L (%)와 동일한 식으로 투자 수익률만 반환.
+- **변수 정의**  
+  - `initialAUM`: 시작 시 선택한 고정 원금 (예: $10,000).  
+  - `accFunding`: 현재까지 자동 충전된 총액 = `dailyCapitalInflow × currentDayIndex`.  
+  - `totalInvestedCapital`: 총 투입 자본 = `initialAUM + accFunding`.  
+  - `currentStockValue`: 보유 종목 현재 가치 합 = `Σ(p.currentPrice × p.quantity)` (= `unrealizedProfit`).  
+  - `currentCash`: 매수 후 남은 잔액 + 누적 충전금 + 매도 대금 − 추가 매수 (= `realizedProfit`, UI "Cash balance").
+- **Total Assets**: `currentStockValue + currentCash`. 중복 합산 없음.
+- **매수 시 현금 차감**: `initialPrice × quantity`(인플레이션 보정가)만큼 정확히 차감.
+- **일일 충전**: `incrementDay()`에서 하루에 한 번만 `realizedProfit + dailyCapitalInflow` 적용.
+- **P/L (순수 투자 성과)**  
+  - `P/L ($) = Total Assets - totalInvestedCapital` (= `getTotalProfit()`).  
+    (직접 합과 동일: `Σ((currentPrice - buyPrice) × quantity)` + 매도 실현손익.)  
+  - `P/L (%) = (Total Profit / totalInvestedCapital) × 100` (= `calculatePortfolioReturn()`).  
+  누적 충전금이 수익에 포함되지 않으며, **모든 종목 마이너스 시 상단 P/L도 마이너스**.
+- **개별 카드 Profit ($)**: `(Current Price - Initial Price) × Quantity`. 상단 P/L($)와 합계 일치 검증 가능.
+- **스토어 getter**: `getAccumulatedFunding()`, `getTotalInvestedCapital()`, `getTotalProfit()`, `getTotalProfitFromPositions()`.
 
 ## 검증 포인트
 
