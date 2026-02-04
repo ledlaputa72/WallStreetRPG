@@ -72,8 +72,21 @@
     - 추가 시 **항상 `position.data[buyDayIndex].close`를 조회해 `buyPrice`/`currentPrice`로 강제 설정**.  
     - 호출부에서 잘못된 가격이 넘어와도 시뮬레이션과 동일한 가격으로 정규화.  
 - **인플레이션**: `dataFetcher`가 API 응답에 `applyInflationToCandles(result.data, year)` 적용 후 반환하므로, 카드·포지션·시뮬레이션 모두 **동일한 보정된 가격** 사용.  
-- **대시보드**: `totalAssets = realizedProfit + Σ(currentPrice × quantity)`, `P&L ($) = totalAssets - AUM`, `P&L (%) = (totalAssets - AUM) / AUM × 100`.  
-  시작 시점에 위 로직으로 현금·주가를 맞추면 수익률이 0.00%에서 시작함.
+- **대시보드**: `totalAssets = realizedProfit + Σ(currentPrice × quantity)`, 시작 시점에 수익률 0%로 시작.
+
+### 7. 자산/현금 흐름 및 P/L 수식 (Critical Audit)
+
+- **totalAssets**: `realizedProfit`(현금 잔고) + `unrealizedProfit`(보유 종목 평가액). 중복 합산 없음.
+- **현금(realizedProfit)**:  
+  `AUM - (매수 시 지불한 합계) + (일일 충전 × 경과 일수) + 매도 대금 - 추가 매수`.  
+  매수 시 `initialPrice * quantity`(인플레이션 보정 가격 동일 적용)만큼 정확히 차감.
+- **일일 충전**: `incrementDay()`에서 하루에 한 번만 `realizedProfit + dailyCapitalInflow` 적용. (`currentDay`당 1회)
+- **P/L (투자 성과만 표시)**:  
+  - `P/L ($) = Total Assets - Initial AUM - (dailyCapitalInflow × currentDayIndex)`  
+  - `P/L (%) = P/L ($) / AUM × 100`  
+  일일 충전 누적분을 빼므로, **모든 종목이 마이너스일 때 상단 P/L도 마이너스**로 표시됨.
+- **개별 카드 Profit ($)**: `(Current Price - Initial Price) × Quantity` (동일 적용).
+- **스토어** `calculatePortfolioReturn()`: 위 P/L (%)와 동일한 식으로 투자 수익률만 반환.
 
 ## 검증 포인트
 

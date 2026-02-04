@@ -33,10 +33,13 @@ export interface MentalState {
 export interface GameStore {
   // AUM and Capital
   aum: number | null // Selected AUM ($1K - $1M)
-  realizedProfit: number // Cash from sold positions
-  unrealizedProfit: number // Current portfolio value
-  totalAssets: number // realizedProfit + unrealizedProfit
-  dailyCapitalInflow: number // Auto-recharged capital per day
+  /** Current cash balance = AUM - purchases + (dailyCapitalInflow × days) + sale proceeds. Not "profit" alone. */
+  realizedProfit: number
+  unrealizedProfit: number // Sum of (currentPrice × quantity) for all positions
+  /** totalAssets = realizedProfit (cash) + unrealizedProfit (stock value). No double-count. */
+  totalAssets: number
+  /** Added to realizedProfit exactly once per day in incrementDay(). */
+  dailyCapitalInflow: number
   ceoCapitalBonus: number // CEO bonus multiplier (0-0.2)
   
   // Timeline
@@ -225,15 +228,12 @@ export const useGameStore = create<GameStore>((set, get) => {
         set({ isPlaying: false })
         return
       }
-      
-      // Add daily capital inflow
+      // Add daily funding exactly once per tick (one day = one tick)
       const newRealized = get().realizedProfit + get().dailyCapitalInflow
-      
       set({
         currentDayIndex: current + 1,
         realizedProfit: newRealized,
       })
-      
       get().calculatePortfolioValue()
     },
     
@@ -248,29 +248,23 @@ export const useGameStore = create<GameStore>((set, get) => {
     calculatePortfolioValue: (): number => {
       const positions = get().portfolioAssets
       const unrealized = positions.reduce(
-        (sum, p) => {
-          const currentPrice = p.currentPrice ?? 0
-          const quantity = p.quantity ?? 0
-          return sum + currentPrice * quantity
-        },
+        (sum, p) => sum + (p.currentPrice ?? 0) * (p.quantity ?? 0),
         0
       )
-      const realizedProfit = get().realizedProfit ?? 0
-      const total = realizedProfit + unrealized
-      
-      set({
-        unrealizedProfit: unrealized,
-        totalAssets: total,
-      })
-      
+      const cash = get().realizedProfit ?? 0
+      const total = cash + unrealized
+      set({ unrealizedProfit: unrealized, totalAssets: total })
       return total
     },
-    
+
+    /** Return %: (Total Assets - AUM - accumulated daily funding) / AUM × 100. Investment performance only. */
     calculatePortfolioReturn: (): number => {
       const aum = get().aum
       if (!aum || aum === 0) return 0
       const totalAssets = get().totalAssets ?? 0
-      return ((totalAssets - aum) / aum) * 100
+      const accumulatedFunding = (get().dailyCapitalInflow ?? 0) * (get().currentDayIndex ?? 0)
+      const investmentProfit = totalAssets - aum - accumulatedFunding
+      return (investmentProfit / aum) * 100
     },
     
     calculateSP500Return: (): number => {

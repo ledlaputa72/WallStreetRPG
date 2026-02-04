@@ -18,10 +18,14 @@ interface SettlementReportProps {
 export function SettlementReport({ onNewGame, onContinue }: SettlementReportProps) {
   const aum = useGameStore(state => state.aum) || 0
   const totalAssets = useGameStore(state => state.totalAssets)
+  const dailyCapitalInflow = useGameStore(state => state.dailyCapitalInflow)
+  const currentDayIndex = useGameStore(state => state.currentDayIndex)
   const portfolioReturn = useGameStore(state => state.calculatePortfolioReturn())
   const sp500Return = useGameStore(state => state.calculateSP500Return())
   const portfolio = useGameStore(state => state.portfolioAssets)
   const alphaTarget = useGameStore(state => state.alphaTarget)
+
+  const investmentProfit = totalAssets - aum - dailyCapitalInflow * currentDayIndex
 
   const isVictory = useMemo(() => {
     const targetProfit = aum * 1.5
@@ -61,10 +65,8 @@ export function SettlementReport({ onNewGame, onContinue }: SettlementReportProp
   }, [aum, totalAssets, sp500Return])
 
   const rewardAmount = useMemo(() => {
-    // Convert profit to game currency (Gold/Gem)
-    const profit = totalAssets - aum
-    return Math.floor(profit * 0.1) // 10% conversion rate
-  }, [totalAssets, aum])
+    return Math.floor(Math.max(0, investmentProfit) * 0.1) // 10% of investment profit only
+  }, [investmentProfit])
 
   const alphaAchieved = portfolioReturn - sp500Return
 
@@ -218,11 +220,19 @@ export function SettlementReport({ onNewGame, onContinue }: SettlementReportProp
                         </div>
                         <div className="mt-2 text-sm">
                           Profit:{' '}
-                          <span className="font-semibold text-green-500">
-                            +$
-                            {(
-                              (mvpStock.currentPrice - mvpStock.buyPrice) *
-                              mvpStock.quantity
+                          <span
+                            className={`font-semibold ${
+                              (mvpStock.currentPrice - mvpStock.buyPrice) * mvpStock.quantity >= 0
+                                ? 'text-green-500'
+                                : 'text-red-500'
+                            }`}
+                          >
+                            {(mvpStock.currentPrice - mvpStock.buyPrice) * mvpStock.quantity >= 0
+                              ? '+'
+                              : ''}
+                            $
+                            {Math.abs(
+                              (mvpStock.currentPrice - mvpStock.buyPrice) * mvpStock.quantity
                             ).toFixed(2)}
                           </span>
                         </div>
