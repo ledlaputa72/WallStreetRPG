@@ -125,19 +125,25 @@ export function BattlePage() {
     setDraftCards(cards)
     setSelectedCardIds(new Set())
     
-    // Fetch prices for all cards
+    // Deterministic "random" percentage per card so same card always shows same cost
+    const seedFromCardId = (id: string) => {
+      let h = 0
+      for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0
+      return Math.abs(h)
+    }
+
+    // Fetch prices for all cards (same symbol+year => same API data; same card.id => same %)
     const priceMap = new Map<string, CardPriceInfo>()
     for (const card of cards) {
       const stockResult = await fetchHistoricalStockData(card.symbol, year)
       if (stockResult.success && stockResult.data.length > 0) {
         const price = stockResult.data[0].close
-        // Calculate quantity - each card should be 15-30% of total capital
-        // Random percentage between 15% and 30%
-        const investmentPercentage = 0.15 + Math.random() * 0.15 // 15% to 30%
+        // 15–30% of AUM per card, deterministic from card.id so display is stable
+        const investmentPercentage = 0.15 + (seedFromCardId(card.id) % 100) / 100 * 0.15
         const targetInvestment = selectedAUM * investmentPercentage
         const quantity = Math.max(1, Math.floor(targetInvestment / price))
         const totalCost = price * quantity
-        
+
         priceMap.set(card.id, {
           cardId: card.id,
           price,

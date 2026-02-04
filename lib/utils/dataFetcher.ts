@@ -55,18 +55,19 @@ export async function fetchHistoricalStockData(
       }
     }
     
-    // Fallback: Use existing API route which generates synthetic data
-    const response = await fetch(`/api/market?type=historical`)
+    // Fallback: still request same symbol+year so API returns deterministic data
+    // (otherwise API would use random symbol/year and card vs position would mismatch)
+    const response = await fetch(`/api/market?type=historical&symbol=${encodeURIComponent(symbol)}&year=${year}`)
     const result = await response.json()
     
     if (result.success && result.data && result.data.length > 0) {
-      // Apply inflation correction
-      const adjustedData: MarketCandle[] = applyInflationToCandles(result.data, result.year || year)
+      // Apply inflation correction (use requested year for consistency)
+      const adjustedData: MarketCandle[] = applyInflationToCandles(result.data, result.year ?? year)
       
       return {
         symbol: result.symbol || symbol,
         stockName: result.stockName || symbol,
-        year: result.year || year,
+        year: result.year ?? year,
         data: adjustedData,
         success: true,
       }

@@ -43,6 +43,19 @@
 - `dataFetcher`: API에서 받은 해당 연도 raw 데이터에 대해 `applyInflationToCandles(result.data, result.year || year)` 적용.
 - 이제 카드·포지션 모두 **동일 (symbol, year)** 데이터에 같은 연도 CPI를 적용하므로, 인플레이션 반영도 일관됨.
 
+### 4. dataFetcher fallback (추가 수정)
+
+- **문제**: API 키가 없거나 첫 요청이 실패할 때 fallback이 `/api/market?type=historical`만 호출해 **symbol·year 없이** 요청 → API가 랜덤 종목/연도 데이터를 반환 → 카드와 포지션이 서로 다른 데이터 사용.
+- **수정** (`lib/utils/dataFetcher.ts`): fallback에서도 `symbol`, `year`를 쿼리에 포함해 호출.  
+  `fetch(\`/api/market?type=historical&symbol=${symbol}&year=${year}\`)`  
+  → 동일 (symbol, year)에 대해 항상 같은 시계열을 받아 카드/포지션 금액 일치.
+
+### 5. 카드별 투자 비율 결정론화 (추가 수정)
+
+- **문제**: `handleStartGame`에서 카드별 수량을 `Math.random()`으로 계산해, 같은 카드라도 호출마다 다른 totalCost가 나올 수 있음.
+- **수정** (`components/pages/battle-page.tsx`): `card.id` 기준 시드 해시로 15–30% 구간을 결정론적으로 계산.  
+  동일 카드는 항상 같은 투자 비율·수량·totalCost로 표시되고, `handleDraftComplete`에서 사용하는 `cardPrices`와 일치.
+
 ## 검증 포인트
 
 - 동일 연도에서 카드 선택 시 표시된 “투자금”과 포트폴리오의 Initial Price × Qty, Total Value가 시작 시점에 맞는지.
